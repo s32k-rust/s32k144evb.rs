@@ -38,11 +38,14 @@ pub fn init() {
         
         portd.pcr0.modify(|_, w| w.mux().bits(0b001));
         portd.pcr0.modify(|_, w| w.dse().bits(0b1));
+        portd.pcr0.modify(|_, w| w.pe().bits(0b0));
         
         portd.pcr15.modify(|_, w| w.mux().bits(0b001));
         portd.pcr15.modify(|_, w| w.dse().bits(0b1));
+        portd.pcr15.modify(|_, w| w.pe().bits(0b0));
 
         portd.pcr16.modify(|_, w| w.mux().bits(0b001));
         portd.pcr16.modify(|_, w| w.dse().bits(0b1));
+        portd.pcr16.modify(|_, w| w.pe().bits(0b0));
     });
 }

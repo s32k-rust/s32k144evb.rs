@@ -5,3 +5,4 @@ extern crate cortex_m;
 extern crate cortex_m_rt;
 
 pub mod led;
+pub mod wdog;

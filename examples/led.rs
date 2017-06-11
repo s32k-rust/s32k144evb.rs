@@ -21,7 +21,6 @@ fn main() {
     
     cortex_m::interrupt::free( |cs| {
         let pcc = PCC.borrow(cs);
-        pcc.pcc_ftfc.modify(|_,w| w.cgc().bits(0b1));
         pcc.pcc_portd.modify(|_, w| w.cgc().bits(0b1));
     });
     

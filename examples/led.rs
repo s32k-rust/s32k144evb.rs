@@ -9,31 +9,33 @@ extern crate s32k144;
 use cortex_m::asm;
 use s32k144::{
     PCC,
-    WDOG,
 };
 
-use s32k144evb::led;
+use s32k144evb::{
+    led,
+    wdog,
+};
 
 extern "C" {
     static mut random_variable: u32;
 }
 
 fn main() {
-    //hprintln!("Hello World");
-
-    cortex_m::interrupt::free( |cs| {
-        let wdog = WDOG.borrow(cs);
-        wdog.cs.write(|w| w.en().bits(0b0));
-        wdog.toval.reset();
-        wdog.win.reset();
-    });
     
     cortex_m::interrupt::free( |cs| {
         let pcc = PCC.borrow(cs);
         pcc.pcc_ftfc.modify(|_,w| w.cgc().bits(0b1));
         pcc.pcc_portd.modify(|_, w| w.cgc().bits(0b1));
     });
+    
+    let mut wdog_settings = wdog::WatchdogSettings::default();
+    wdog_settings.enable = false;
+    wdog::configure(wdog_settings);
 
+    
+    
+
+    
     led::init();
     led::RED.off();
     led::GREEN.off();

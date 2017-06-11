@@ -76,63 +76,18 @@ pub enum WatchdogError {
     ConfigurationFailed,
 }
 
-pub enum WatchdogInitialState {
-    Disabled,
-    Reconfigurable,
-    Settings(WatchdogSettings),
-}
 
-/// pub fn init(state: WatchdogInitialState) -> Result<(), WatchdogError>
+/// pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> 
 ///
-/// Initializes the watchdog timer
+/// configures the watchdog timer and return () or an error.
 ///
-/// Disabled: disable the watchdog timer in non-reconfigurable mode
-/// Reconfigurable: allow reconfiguring of watchdog after 128 cycles.
-/// Settings(settings): configres watchdog with provided settings
-pub fn init(state: WatchdogInitialState) -> Result<(), WatchdogError> {
-    match state {
-        WatchdogInitialState::Disabled => {
-            cortex_m::interrupt::free( |cs| {
-                let wdog = WDOG.borrow(cs);
-                wdog.cs.write(|w| w
-                              .en().bits(0b0)
-                );
-                wdog.toval.reset();
-                wdog.win.reset();
-            });
-        },
-        WatchdogInitialState::Reconfigurable => {
-            cortex_m::interrupt::free( |cs| {
-                let wdog = WDOG.borrow(cs);
-                wdog.cs.write(|w| w
-                              .update().bits(0b1)
-                );
-                wdog.toval.reset();
-                wdog.win.reset();
-            });
-        },
-        WatchdogInitialState::Settings(settings) => {
-            cortex_m::interrupt::free( |cs| {
-                let wdog = WDOG.borrow(cs);
-                apply_settings(settings, wdog);
-            });
-        },
-            
-    };
-
-    
-    // TODO: write some logic (acceptance test) that detects if the reconfiguration fails
-    return Ok(());
-}
-
-/// pub fn reconfigure(settings: WatchdogSettings) -> Result<(), WatchdogError> 
+/// can be used as an initial configuration within 128 cycles of startup
+/// or to reconfigure if reconfiguring is allowed.
 ///
-/// reconfigures the watchdog timer and return result.
-///
-/// could be used as an initial configuration except that checking takes so
-/// much time that watchdog is likely to become unconfigurable before this function
-/// is done configuring. Use init(Reconfigurable) to allow configuring after 128 cycles.
-pub fn reconfigure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
+/// Since this functions needs to wait for the settings to either
+/// change or fail changing, the function can spend significant time
+/// in an interrupt free context
+pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
     
     cortex_m::interrupt::free(|cs| {
         // TODO: find good values for these constants

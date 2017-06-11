@@ -15,14 +15,9 @@ use s32k144evb::{
 
 fn main() {
     
-  
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
     wdog::configure(wdog_settings);
-
-    
-    
-
     
     led::init();
     led::RED.off();

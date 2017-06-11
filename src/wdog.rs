@@ -142,6 +142,10 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
     })    
         
 }
+
+pub fn reset() {
+    unimplemented!();
+}
     
 fn apply_settings(settings: WatchdogSettings, wdog: &Wdog) {
     let (win_value, win_enabled) = match settings.window {

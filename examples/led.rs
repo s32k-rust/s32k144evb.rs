@@ -16,9 +16,6 @@ use s32k144evb::{
     wdog,
 };
 
-extern "C" {
-    static mut random_variable: u32;
-}
 
 fn main() {
     

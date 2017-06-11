@@ -4,12 +4,8 @@
 #[macro_use]
 extern crate cortex_m;
 extern crate s32k144evb;
-extern crate s32k144;
 
 use cortex_m::asm;
-use s32k144::{
-    PCC,
-};
 
 use s32k144evb::{
     led,
@@ -19,11 +15,7 @@ use s32k144evb::{
 
 fn main() {
     
-    cortex_m::interrupt::free( |cs| {
-        let pcc = PCC.borrow(cs);
-        pcc.pcc_portd.modify(|_, w| w.cgc().bits(0b1));
-    });
-    
+  
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
     wdog::configure(wdog_settings);

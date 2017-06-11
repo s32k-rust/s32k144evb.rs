@@ -1,6 +1,10 @@
 extern crate cortex_m;
 
-use s32k144::{PORTD, PTD};
+use s32k144::{
+    PORTD,
+    PTD,
+    PCC
+};
 
 pub static RED: Led = Led{pin: 15};
 pub static GREEN: Led = Led{pin: 16};
@@ -31,8 +35,11 @@ impl Led {
 
 pub fn init() {
     cortex_m::interrupt::free(|cs | {
+        let pcc = PCC.borrow(cs);
         let portd = PORTD.borrow(cs);
         let ptd = PTD.borrow(cs);        
+
+        pcc.pcc_portd.modify(|_, w| w.cgc().bits(0b1));
 
         ptd.pddr.write(|w| unsafe{ w.pdd().bits(ptd.pddr.read().bits() | (1<<0) | (1<<15) | (1<<16) ) } );
         

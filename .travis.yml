@@ -6,5 +6,7 @@ script:
   - xargo build --verbose --all
   - xargo test --verbose --all
   
-before_install:
+after_install:
+  - mv .cargo temp_cargo_config
   - cargo install xargo
+  - mv temp_cargo_config .cargo 

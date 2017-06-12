@@ -112,21 +112,23 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
         if !unlocked(wdog) && under_configuration(wdog) {
             return Err(WatchdogError::ReconfigurationDisallowed);
         }
-        
-        for _tries in 0..UNLOCK_TRIES {
-            unlock(wdog);
-            
-            let mut i = UNLOCK_CHECKS;
-            while i > 0 {
+
+        if !under_configuration(wdog) && !unlocked(wdog){
+            for _tries in 0..UNLOCK_TRIES {
+                unlock(wdog);
+                
+                let mut i = UNLOCK_CHECKS;
+                while i > 0 {
+                    if unlocked(wdog) {
+                        i -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                
                 if unlocked(wdog) {
-                    i -= 1;
-                } else {
                     break;
                 }
-            }
-
-            if unlocked(wdog) {
-                break;
             }
         }
 

@@ -4,7 +4,6 @@ rust:
 
 script:
   - xargo build --verbose --all
-  - xargo test --verbose --all
   
 before_script:
   - mv .cargo temp_cargo_config

@@ -9,4 +9,5 @@ script:
 before_script:
   - mv .cargo temp_cargo_config
   - cargo install xargo
+  - rustup component add rust-src
   - mv temp_cargo_config .cargo 

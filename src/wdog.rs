@@ -2,7 +2,6 @@ extern crate cortex_m;
 
 use s32k144::{
     WDOG,
-    Wdog,
 };
 
 pub enum WatchdogWindow {
@@ -97,7 +96,7 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
         let wdog = WDOG.borrow(cs);
 
         let mut unlocked_flag = false;
-        let mut unlocked = |wdog: &Wdog| {
+        let mut unlocked = |wdog: &WDOG| {
             if unlocked_flag {
                 true
             } else {
@@ -106,8 +105,8 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
             }
         };
                 
-        let unlock = |wdog: &Wdog| wdog.cnt.write(|w| unsafe{ w.bits(0xd928c520) });
-        let under_configuration = |wdog: &Wdog| wdog.cs.read().rcs().is_0();
+        let unlock = |wdog: &WDOG| wdog.cnt.write(|w| unsafe{ w.bits(0xd928c520) });
+        let under_configuration = |wdog: &WDOG| wdog.cs.read().rcs().is_0();
         
         if !unlocked(wdog) && under_configuration(wdog) {
             return Err(WatchdogError::ReconfigurationDisallowed);
@@ -149,7 +148,7 @@ pub fn reset() {
     unimplemented!();
 }
     
-fn apply_settings(settings: WatchdogSettings, wdog: &Wdog) {
+fn apply_settings(settings: WatchdogSettings, wdog: &WDOG) {
     let (win_value, win_enabled) = match settings.window {
         WatchdogWindow::Enabled(x) => (x, true),
         WatchdogWindow::Disabled => (0x0000, false),
@@ -159,15 +158,15 @@ fn apply_settings(settings: WatchdogSettings, wdog: &Wdog) {
     unsafe{ wdog.win.write(|w|  w.bits(win_value as u32)); }
     
     wdog.cs.modify(|_, w| w
-                   .stop().bits(settings.stop_enable as u8)
-                   .wait().bits(settings.wait_enable as u8)
-                   .dbg().bits(settings.debug_enable as u8)
-                   .update().bits(settings.allow_updates as u8)
-                   .int().bits(settings.interrupt_enable as u8)
-                   .en().bits(settings.enable as u8)
-                   .pres().bits(settings.prescaler as u8)
+                   .stop().bit(settings.stop_enable)
+                   .wait().bit(settings.wait_enable)
+                   .dbg().bit(settings.debug_enable)
+                   .update().bit(settings.allow_updates)
+                   .int().bit(settings.interrupt_enable)
+                   .en().bit(settings.enable)
+                   .pres().bit(settings.prescaler)
                    .cmd32en()._1()
-                   .win().bits(win_enabled as u8)
+                   .win().bit(win_enabled)
     );
 }
 

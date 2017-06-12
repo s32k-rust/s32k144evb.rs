@@ -39,20 +39,20 @@ pub fn init() {
         let portd = PORTD.borrow(cs);
         let ptd = PTD.borrow(cs);        
 
-        pcc.pcc_portd.modify(|_, w| w.cgc().bits(0b1));
+        pcc.pcc_portd.modify(|_, w| w.cgc()._1());
 
         ptd.pddr.write(|w| unsafe{ w.pdd().bits(ptd.pddr.read().bits() | (1<<0) | (1<<15) | (1<<16) ) } );
         
         portd.pcr0.modify(|_, w| w.mux().bits(0b001));
-        portd.pcr0.modify(|_, w| w.dse().bits(0b1));
-        portd.pcr0.modify(|_, w| w.pe().bits(0b0));
+        portd.pcr0.modify(|_, w| w.dse()._1());
+        portd.pcr0.modify(|_, w| w.pe()._0());
         
         portd.pcr15.modify(|_, w| w.mux().bits(0b001));
-        portd.pcr15.modify(|_, w| w.dse().bits(0b1));
-        portd.pcr15.modify(|_, w| w.pe().bits(0b0));
+        portd.pcr15.modify(|_, w| w.dse()._1());
+        portd.pcr15.modify(|_, w| w.pe()._0());
 
         portd.pcr16.modify(|_, w| w.mux().bits(0b001));
-        portd.pcr16.modify(|_, w| w.dse().bits(0b1));
-        portd.pcr16.modify(|_, w| w.pe().bits(0b0));
+        portd.pcr16.modify(|_, w| w.dse()._1());
+        portd.pcr16.modify(|_, w| w.pe()._0());
     });
 }

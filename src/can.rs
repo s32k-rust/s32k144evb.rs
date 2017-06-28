@@ -3,11 +3,6 @@ pub struct CanSettings {
 
     pub enable: bool,
 
-    /// The FRZ bit specifies the FlexCAN behavior when the HALT bit in the CAN_MCR Register is set or when
-    /// Debug mode is requested at chip level. When FRZ is asserted, FlexCAN is enabled to enter Freeze
-    /// mode. Negation of this bit field causes FlexCAN to exit from Freeze mode.
-    pub freeze: bool,
-    
     /// This bit controls whether the Rx FIFO feature is enabled or not. When RFEN is set, MBs 0 to 5 cannot be
     /// used for normal reception and transmission because the corresponding memory region (0x80-0xDC) is
     /// used by the FIFO engine as well as additional MBs (up to 32, depending on CAN_CTRL2[RFFN] setting)
@@ -65,6 +60,7 @@ pub struct CanSettings {
     /// internally to the receiver input. The Rx CAN input pin is ignored and the Tx CAN output goes to the
     /// recessive state (logic 1). FlexCAN behaves as it normally does when transmitting, and treats its own
     /// transmitted message as a message received from a remote node.
+    pub loopback_mode: bool,
 }
     
  

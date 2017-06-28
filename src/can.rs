@@ -62,6 +62,24 @@ pub struct CanSettings {
     /// transmitted message as a message received from a remote node.
     pub loopback_mode: bool,
 }
+
+impl Default for CanSettings {
+    fn default() -> Self {
+        CanSettings{
+            enable: false,
+            fifo_enabled: false,
+            warning_interrupt: false,
+            self_reception: false,
+            dma_enable: false,
+            pretend_networking: false,
+            can_fd: false,
+            id_acceptance_mode: IdAcceptanceMode::FormatA,
+            last_message_buffer: 0b0001111,
+            prescale_factor: 0,
+            loopback_mode: false,
+        }
+    }
+}
     
  
 pub enum IdAcceptanceMode {

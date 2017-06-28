@@ -51,6 +51,20 @@ pub struct CanSettings {
     /// This 7-bit field defines the number of the last Message Buffers that will take part in the matching and
     /// arbitration processes. The reset value (0x0F) is equivalent to a 16 MB configuration.
     pub last_message_buffer: u8,
+
+    /// This 8-bit field defines the ratio between the PE clock frequency and the Serial Clock (Sclock) frequency.
+    /// The Sclock period defines the time quantum of the CAN protocol. For the reset value, the Sclock
+    /// frequency is equal to the PE clock frequency. The Maximum value of this field is 0xFF, that gives a
+    /// minimum Sclock frequency equal to the PE clock frequency divided by 256. See Section "Protocol
+    /// Timing". This field can be written only in Freeze mode because it is blocked by hardware in other modes.
+    /// Sclock frequency = PE clock frequency / (PRESDIV + 1)
+    pub prescale_factor: u8,
+
+    /// This bit configures FlexCAN to operate in Loop-Back mode. In this mode, FlexCAN performs an internal
+    /// loop back that can be used for self test operation. The bit stream output of the transmitter is fed back
+    /// internally to the receiver input. The Rx CAN input pin is ignored and the Tx CAN output goes to the
+    /// recessive state (logic 1). FlexCAN behaves as it normally does when transmitting, and treats its own
+    /// transmitted message as a message received from a remote node.
 }
     
  

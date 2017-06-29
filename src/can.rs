@@ -23,15 +23,15 @@ pub struct CanSettings {
     /// the frame reception.
     pub self_reception: bool,
 
+    /// This bit indicates whether Rx matching process will be based either on individual masking and queue or
+    /// on masking scheme with CAN_RXMGMASK, CAN_RX14MASK, CAN_RX15MASK and
+    /// CAN_RXFGMASK.
+    pub individual_masking: bool,
+    
     /// The DMA Enable bit controls whether the DMA feature is enabled or not. The DMA feature can only be
     /// used in Rx FIFO, consequently the bit CAN_MCR[RFEN] must be asserted. When DMA and RFEN are
     /// set, the CAN_IFLAG1[BUF5I] generates the DMA request and no RX FIFO interrupt is generated
     pub dma_enable: bool,
-
-    /// This bit enables the Pretended Networking functionality. Once in Stop mode, CAN_PE sub-block is kept
-    /// operational, able to process Rx message filtering as defined by the Pretended Networking configuration
-    /// registers.
-    pub pretend_networking: bool,
 
     /// This bit enables the CAN with Flexible Data rate (CAN FD) operation
     pub can_fd: bool,
@@ -45,6 +45,11 @@ pub struct CanSettings {
     ///
     /// This 7-bit field defines the number of the last Message Buffers that will take part in the matching and
     /// arbitration processes. The reset value (0x0F) is equivalent to a 16 MB configuration.
+    ///
+    /// Additionally, the definition of MAXMB value must take into account the region of MBs occupied by Rx
+    /// FIFO and its ID filters table space defined by RFFN bit in CAN_CTRL2 register. MAXMB also impacts the
+    /// definition of the minimum number of peripheral clocks per CAN bit as described in Table "Minimum Ratio
+    /// Between Peripheral Clock Frequency and CAN Bit Rate" 
     pub last_message_buffer: u8,
 
     /// This 8-bit field defines the ratio between the PE clock frequency and the Serial Clock (Sclock) frequency.
@@ -70,8 +75,8 @@ impl Default for CanSettings {
             fifo_enabled: false,
             warning_interrupt: false,
             self_reception: false,
+            individual_masking: false,
             dma_enable: false,
-            pretend_networking: false,
             can_fd: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
             last_message_buffer: 0b0001111,

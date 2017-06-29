@@ -1,3 +1,10 @@
+extern crate cortex_m;
+
+use s32k144::{
+    CAN0,
+};
+use s32k144::can0::mcr::IDAMW;
+
 
 pub struct CanSettings {
 
@@ -97,4 +104,61 @@ pub enum IdAcceptanceMode {
     /// Format D: All frames rejected.
     FormatD,
 }
-    
+
+fn enter_freeze(can: &CAN0) {
+    can.mcr.modify(|_, w| w
+                   .frz()._1()
+                   .halt()._1()
+    );
+}
+
+pub enum CanError {
+    FreezeModeError,
+    SettingsError,
+    ConfigurationFailed,
+}
+
+pub fn configure(settings: CanSettings) -> Result<(), CanError> {
+
+    cortex_m::interrupt::free(|cs| {
+        if settings.dma_enable && !settings.fifo_enabled {
+            return Err(CanError::SettingsError);
+        }            
+        
+        let can = CAN0.borrow(cs);
+
+        enter_freeze(can);
+
+        // TODO: add wait for freeze mode
+        
+        can.mcr.modify(|_, w| { w
+                                .mdis().bit(!settings.enable)
+                                .rfen().bit(settings.fifo_enabled)
+                                .srxdis().bit(settings.self_reception)
+                                .irmq().bit(settings.individual_masking)
+                                .dma().bit(settings.dma_enable)
+                                .fden().bit(settings.can_fd);
+
+                                match settings.id_acceptance_mode {
+                                    IdAcceptanceMode::FormatA => w.idam().variant(IDAMW::_00),
+                                    IdAcceptanceMode::FormatB => w.idam().variant(IDAMW::_01),
+                                    IdAcceptanceMode::FormatC => w.idam().variant(IDAMW::_10),
+                                    IdAcceptanceMode::FormatD => w.idam().variant(IDAMW::_11),
+                                };
+                                
+                                unsafe { w.maxmb().bits(settings.last_message_buffer) };
+
+                                w
+        });
+        /*
+        can.ctrl1.modify(|_, w| unsafe { w.presdiv().bits(settings.prescale_divisor) }
+                         .lpb().bit(settings.loopback_mode)
+                         
+        });
+        */
+
+        return Ok(());
+    })           
+}
+                              
+

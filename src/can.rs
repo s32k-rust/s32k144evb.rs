@@ -62,7 +62,7 @@ pub struct CanSettings {
     /// minimum Sclock frequency equal to the PE clock frequency divided by 256. See Section "Protocol
     /// Timing". This field can be written only in Freeze mode because it is blocked by hardware in other modes.
     /// Sclock frequency = PE clock frequency / (PRESDIV + 1)
-    pub prescale_factor: u8,
+    pub prescale_divisor: u8,
 
     /// This bit configures FlexCAN to operate in Loop-Back mode. In this mode, FlexCAN performs an internal
     /// loop back that can be used for self test operation. The bit stream output of the transmitter is fed back
@@ -83,7 +83,7 @@ impl Default for CanSettings {
             dma_enable: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
             last_message_buffer: 0b0001111,
-            prescale_factor: 0,
+            prescale_divisor: 0,
             loopback_mode: false,
         }
     }

@@ -70,6 +70,15 @@ pub struct CanSettings {
     /// recessive state (logic 1). FlexCAN behaves as it normally does when transmitting, and treats its own
     /// transmitted message as a message received from a remote node.
     pub loopback_mode: bool,
+
+    /// This bit selects the clock source to the CAN Protocol Engine (PE) to be either the peripheral clock or the
+    /// oscillator clock. The selected clock is the one fed to the prescaler to generate the Serial Clock (Sclock). In
+    /// order to guarantee reliable operation
+    pub clock_source: ClockSource,
+
+    pub source_frequency: u32,
+    pub can_frequency: u32,
+    
 }
 
 impl Default for CanSettings {
@@ -85,6 +94,23 @@ impl Default for CanSettings {
             last_message_buffer: 0b0001111,
             prescale_divisor: 0,
             loopback_mode: false,
+            can_frequency: 1000000,
+            clock_source: ClockSource::Oscilator,
+            source_frequency: 0,
+        }
+    }
+}
+
+pub enum ClockSource {
+    Peripheral,
+    Oscilator,
+}
+
+impl From<ClockSource> for bool {
+    fn from(cs: ClockSource) -> bool {
+        match cs {
+            ClockSource::Peripheral => true,
+            ClockSource::Oscilator => false,
         }
     }
 }

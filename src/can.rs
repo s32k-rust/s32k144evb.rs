@@ -103,6 +103,7 @@ pub enum IdAcceptanceMode {
 
 fn enter_freeze(can: &CAN0) {
     can.mcr.modify(|_, w| w
+                   .mdis()._1()
                    .frz()._1()
                    .halt()._1()
     );

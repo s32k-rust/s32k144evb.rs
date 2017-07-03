@@ -143,13 +143,42 @@ pub enum CanError {
 
 pub fn configure(settings: CanSettings) -> Result<(), CanError> {
 
+    if settings.dma_enable && !settings.fifo_enabled {
+        return Err(CanError::SettingsError);
+    }            
+
+    if settings.source_frequency % settings.can_frequency != 0 {
+        return Err(CanError::SettingsError);
+    }
+
+    if settings.source_frequency < settings.can_frequency*5 {
+        return Err(CanError::SettingsError);
+    }
+    
+    let presdiv = (settings.source_frequency / settings.can_frequency) / 25;
+    let tqs = ( settings.source_frequency / (presdiv + 1) ) / settings.can_frequency;
+
+    // Table 50-26 in datasheet, can standard compliant settings
+    let (pseg2, rjw) =
+        if tqs >= 8 && tqs < 10 {
+            (1, 1)
+        } else if tqs >= 10 && tqs < 15 {
+            (3, 2)
+        } else if tqs >= 15 && tqs < 20 {
+            (6, 2)
+        } else if tqs >= 20 && tqs < 26 {
+            (7, 3)
+        } else {
+            panic!("there should be between 8 and 25 tqs in an bit");
+        };
+    
+    let pseg1 = ( (tqs - (pseg2 + 1) ) / 2 ) - 1;
+    let propseg = tqs - (pseg2 + 1) - (pseg1 + 1) - 1;
+            
+
     cortex_m::interrupt::free(|cs| {
-        if settings.dma_enable && !settings.fifo_enabled {
-            return Err(CanError::SettingsError);
-        }            
         
         let can = CAN0.borrow(cs);
-
         enter_freeze(can);
 
         // TODO: add wait for freeze mode
@@ -172,15 +201,22 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
 
                                 w
         });
-        /*
-        can.ctrl1.modify(|_, w| unsafe { w.presdiv().bits(settings.prescale_divisor) }
-                         .lpb().bit(settings.loopback_mode)
-                         
-        });
-        */
+        
+        can.ctrl1.modify(|_, w| { unsafe { w
+                                           .presdiv().bits(settings.prescale_divisor)
+                                           .pseg1().bits(pseg1 as u8)
+                                           .pseg2().bits(pseg2 as u8)
+                                           .propseg().bits(propseg as u8)
+                                           .rjw().bits(rjw as u8)
+                                           .lpb().bit(settings.loopback_mode)                                
+        }});
+
+        // TODO: Remember to enable and recover from freeze, but first do something to the message boxes
+
+        // Make some acceptance test to see if the configurations have been applied
 
         return Ok(());
-    })           
+    })       
 }
                               
 

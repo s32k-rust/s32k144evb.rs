@@ -40,9 +40,6 @@ pub struct CanSettings {
     /// set, the CAN_IFLAG1[BUF5I] generates the DMA request and no RX FIFO interrupt is generated
     pub dma_enable: bool,
 
-    /// This bit enables the CAN with Flexible Data rate (CAN FD) operation
-    pub can_fd: bool,
-
     /// This 2-bit field identifies the format of the Rx FIFO ID Filter Table elements. Note that all elements of the
     /// table are configured at the same time by this field (they are all the same format). See Section "Rx FIFO
     /// Structure".
@@ -84,7 +81,6 @@ impl Default for CanSettings {
             self_reception: false,
             individual_masking: false,
             dma_enable: false,
-            can_fd: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
             last_message_buffer: 0b0001111,
             prescale_factor: 0,
@@ -136,8 +132,7 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
                                 .rfen().bit(settings.fifo_enabled)
                                 .srxdis().bit(settings.self_reception)
                                 .irmq().bit(settings.individual_masking)
-                                .dma().bit(settings.dma_enable)
-                                .fden().bit(settings.can_fd);
+                                .dma().bit(settings.dma_enable);
 
                                 match settings.id_acceptance_mode {
                                     IdAcceptanceMode::FormatA => w.idam().variant(IDAMW::_00),

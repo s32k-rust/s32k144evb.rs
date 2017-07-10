@@ -7,6 +7,16 @@ use s32k144::{
 };
 use s32k144::can0::mcr::IDAMW;
 
+pub enum CanID {
+    Standard(u16),
+    Extended(u32),
+}
+
+pub struct CanMessage {
+    id: CanID,
+    dlc: u8,
+    data: [u8; 8],
+}
 
 pub struct CanSettings {
 

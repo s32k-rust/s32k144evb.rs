@@ -127,6 +127,67 @@ pub enum IdAcceptanceMode {
     FormatD,
 }
 
+pub enum MessageBufferCode {
+    Receive(ReceiveBufferCode),
+    Transmit(TransmitBufferCode),
+}
+
+pub enum ReceiveBufferCode {
+    /// MB is not active
+    Inactive,
+
+    /// MB is active and empty
+    Empty,
+
+    /// MB is full
+    Full,
+
+    /// MV is beeing overwritten into a full buffer
+    Overrun,
+
+    /// A frame was configured to recongnize a Remote Reuqest Frame and transmit a response Frame in return
+    Ranswer,
+
+    /// FlexCAN is updating the contents of the MB, the CPU must not access the MB
+    Busy,
+}
+
+pub enum TransmitBufferCode {
+    /// MB is not active
+    Inactive,
+
+    /// MB is aborted
+    Abort,
+
+    /// MB is a tx data frame or tx RTR frame depending on RTR bit
+    DataRemote,
+
+    /// MV is a Tx response frame from an incoming RTR frame
+    Tanswer,
+}
+
+impl From<MessageBufferCode> for u8 {
+    fn from(code: MessageBufferCode) -> u8 {
+        match code {
+            MessageBufferCode::Receive(ref r) => match *r {
+                ReceiveBufferCode::Inactive => 0b0000,
+                ReceiveBufferCode::Empty => 0b0100,
+                ReceiveBufferCode::Full => 0b0010,
+                ReceiveBufferCode::Overrun => 0b0110,
+                ReceiveBufferCode::Ranswer => 0b1010,
+                ReceiveBufferCode::Busy => 0b0001, // really 0bxxx1
+            },
+            MessageBufferCode::Transmit(ref t) => match *t {
+                TransmitBufferCode::Inactive => 0b1000,
+                TransmitBufferCode::Abort => 0b1001,
+                TransmitBufferCode::DataRemote => 0b1100,
+                TransmitBufferCode::Tanswer => 0b1110,    
+            },
+        }
+    }
+}
+   
+
 fn enter_freeze(can: &CAN0) {
     can.mcr.modify(|_, w| w
                    .mdis()._1()

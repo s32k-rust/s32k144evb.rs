@@ -9,8 +9,8 @@ name = "s32k144evb"
 version = "0.1.0"
 
 [dependencies]
-cortex-m = "0.2.10"
-s32k144 = "0.2.0"
+cortex-m = "0.3.0"
+s32k144 = "0.4.0"
 cortex-m-rt = "0.2.4"
 
 [profile.dev]

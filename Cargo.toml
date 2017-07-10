@@ -12,6 +12,7 @@ version = "0.1.0"
 cortex-m = "0.3.0"
 s32k144 = "0.4.0"
 cortex-m-rt = "0.2.4"
+bit_field = "0.7.0"
 
 [profile.dev]
 opt-level = 0

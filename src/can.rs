@@ -1,5 +1,7 @@
 extern crate cortex_m;
 
+use bit_field::BitField;
+
 use s32k144::{
     CAN0,
 };

@@ -6,8 +6,6 @@ use s32k144::{
     CAN0,
 };
 
-use s32k144::can0::EMBEDDEDRAM;
-
 use s32k144::can0::mcr::IDAMW;
 
 pub enum CanID {
@@ -298,41 +296,73 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
     })       
 }
  
-
-struct MailboxSettings{
-    code: MessageBufferCode,
-    rtr: bool,
-    ide: bool,
-    id: u32,
+pub enum TransmitError {
+    MailboxBusy,
+    MailboxConfigurationError,
+    MailboxValueError,
 }
-                              
-unsafe fn mailbox_write(embedded_ram: &[EMBEDDEDRAM], start_adress: usize, settings: MailboxSettings, data: &[u8]) {
-    embedded_ram[start_adress].write(|w| w.bits(
-        0u32.set_bits(24..28, u8::from(settings.code.clone()) as u32)
-            .set_bit(21, settings.ide)
-            .set_bit(20, settings.rtr)
-            .set_bits(16..20, data.len() as u32)
-            .get_bits(0..32)
-    ));
 
-    if settings.ide {
-        embedded_ram[start_adress+1].write(|w| w.bits(
-            0u32.set_bits(0..29, settings.id)
-                .get_bits(0..32)
-        ));
-    } else {
-        embedded_ram[start_adress+1].write(|w| w.bits(
-            0u32.set_bits(18..29, settings.id)
-                .get_bits(0..32)
-        ));
-    }
+pub fn transmit(message: CanMessage, mailbox: usize) -> Result<(), TransmitError> {
+    let start_adress = mailbox*4;
+    
+    cortex_m::interrupt::free(|cs| {
 
-    for index in 0..data.len() {
-        embedded_ram[start_adress+2 + index/4].modify(|r, w| {
-            let mut bitmask = r.bits();
-            bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, data[index] as u32);
-            w.bits(bitmask)
-        });
+        let can = CAN0.borrow(cs);
+
+        // TODO: 1. Check whether the respective interrupt bit is set and clear it.
+        
+        /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the
+        CODE field of the Control and Status word to request an abortion of the
+        transmission. Wait for the corresponding IFLAG bit to be asserted by polling the
+        CAN_IFLAG register or by the interrupt request if enabled by the respective IMASK
+        bit. Then read back the CODE field to check if the transmission was aborted or
+        transmitted (see Transmission abort mechanism). If backwards compatibility is
+        desired (CAN_MCR[AEN] bit is negated), just write the INACTIVE code (0b1000)
+        to the CODE field to inactivate the MB but then the pending frame may be
+        transmitted without notification (see Mailbox inactivation). */
+        let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
+
+        if current_code == MessageBufferCode::Transmit(TransmitBufferCode::DataRemote).into() {
+            return Err(TransmitError::MailboxBusy);
+        } else if current_code != MessageBufferCode::Transmit(TransmitBufferCode::Inactive).into() && current_code != MessageBufferCode::Receive(ReceiveBufferCode::Inactive).into() {
+            return Err(TransmitError::MailboxConfigurationError);
+        }
+        
+        // 3. Write the ID word.
+        match message.id {
+            CanID::Extended(id) => {
+                unsafe {can.embedded_ram[start_adress+1].write(|w| w.bits(
+                    0u32.set_bits(0..29, id)
+                        .get_bits(0..32)
+                ))};
+            },
+            CanID::Standard(id) => {
+                unsafe {can.embedded_ram[start_adress+1].write(|w| w.bits(
+                    0u32.set_bits(18..29, id as u32)
+                        .get_bits(0..32)
+                ))};
+            },
+        }
+        
+        // 4. Write the data bytes.
+        for index in 0..(message.dlc as usize) {
+            can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
+                let mut bitmask = r.bits();
+                bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, message.data[index] as u32);
+                unsafe{ w.bits(bitmask) }
+            });
     }   
 
+        
+        // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
+        // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
+        can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
+            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferCode::DataRemote)) as u32)
+                .set_bit(21, match message.id {CanID::Extended(ref _id) => true, CanID::Standard(ref _id) => false})
+                .set_bits(16..20, message.dlc as u32)
+                .get_bits(0..32)
+        )});
+        
+        Ok(())
+    })
 }

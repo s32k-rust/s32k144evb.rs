@@ -302,7 +302,7 @@ pub enum TransmitError {
     MailboxValueError,
 }
 
-pub fn transmit(message: CanMessage, mailbox: usize) -> Result<(), TransmitError> {
+pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitError> {
     let start_adress = mailbox*4;
     
     cortex_m::interrupt::free(|cs| {

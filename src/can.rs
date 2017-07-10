@@ -5,6 +5,9 @@ use bit_field::BitField;
 use s32k144::{
     CAN0,
 };
+
+use s32k144::can0::EMBEDDEDRAM;
+
 use s32k144::can0::mcr::IDAMW;
 
 pub enum CanID {
@@ -294,5 +297,42 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
         return Ok(());
     })       
 }
-                              
+ 
 
+struct MailboxSettings{
+    code: MessageBufferCode,
+    rtr: bool,
+    ide: bool,
+    id: u32,
+}
+                              
+fn mailbox_write(embedded_ram: &[EMBEDDEDRAM], start_adress: usize, settings: MailboxSettings, data: &[u8]) {
+    unsafe { embedded_ram[start_adress].write(|w| w.bits(
+        0u32.set_bits(24..28, u8::from(settings.code.clone()) as u32)
+            .set_bit(21, settings.ide)
+            .set_bit(20, settings.rtr)
+            .set_bits(16..20, data.len() as u32)
+            .get_bits(0..32)
+    ))};
+
+    if settings.ide {
+        unsafe { embedded_ram[start_adress+1].write(|w| w.bits(
+            0u32.set_bits(0..29, settings.id)
+                .get_bits(0..32)
+        ))};
+    } else {
+        unsafe { embedded_ram[start_adress+1].write(|w| w.bits(
+            0u32.set_bits(18..29, settings.id)
+                .get_bits(0..32)
+        ))};
+    }
+
+    for index in 0..data.len() {
+        embedded_ram[start_adress+2 + index/4].modify(|r, w| {
+            let mut bitmask = r.bits();
+            bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, data[index] as u32);
+            unsafe {w.bits(bitmask)}
+        });
+    }   
+
+}

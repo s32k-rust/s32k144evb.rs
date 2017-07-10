@@ -14,9 +14,9 @@ pub enum CanID {
 }
 
 pub struct CanMessage {
-    id: CanID,
-    dlc: u8,
-    data: [u8; 8],
+    pub id: CanID,
+    pub dlc: u8,
+    pub data: [u8; 8],
 }
 
 pub struct CanSettings {

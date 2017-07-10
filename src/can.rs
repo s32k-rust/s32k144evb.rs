@@ -127,11 +127,13 @@ pub enum IdAcceptanceMode {
     FormatD,
 }
 
+#[derive(Clone, Copy)]
 pub enum MessageBufferCode {
     Receive(ReceiveBufferCode),
     Transmit(TransmitBufferCode),
 }
 
+#[derive(Clone, Copy)]
 pub enum ReceiveBufferCode {
     /// MB is not active
     Inactive,
@@ -152,6 +154,7 @@ pub enum ReceiveBufferCode {
     Busy,
 }
 
+#[derive(Clone, Copy)]
 pub enum TransmitBufferCode {
     /// MB is not active
     Inactive,

@@ -11,8 +11,11 @@ version = "0.1.0"
 [dependencies]
 cortex-m = "0.3.0"
 s32k144 = "0.4.0"
-cortex-m-rt = "0.2.4"
 bit_field = "0.7.0"
+
+[dependencies.cortex-m-rt]
+features = ["abort-on-panic"]
+version = "0.3.2"
 
 [profile.dev]
 opt-level = 0

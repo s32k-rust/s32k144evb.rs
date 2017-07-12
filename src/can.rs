@@ -22,8 +22,6 @@ pub struct CanMessage {
 
 pub struct CanSettings {
 
-    pub enable: bool,
-
     /// This bit controls whether the Rx FIFO feature is enabled or not. When RFEN is set, MBs 0 to 5 cannot be
     /// used for normal reception and transmission because the corresponding memory region (0x80-0xDC) is
     /// used by the FIFO engine as well as additional MBs (up to 32, depending on CAN_CTRL2[RFFN] setting)
@@ -98,7 +96,6 @@ pub struct CanSettings {
 impl Default for CanSettings {
     fn default() -> Self {
         CanSettings{
-            enable: false,
             fifo_enabled: false,
             warning_interrupt: false,
             self_reception: false,
@@ -229,7 +226,7 @@ pub enum CanError {
     ConfigurationFailed,
 }
 
-pub fn configure(settings: CanSettings) -> Result<(), CanError> {
+pub fn init(settings: &CanSettings) -> Result<(), CanError> {
 
     if settings.dma_enable && !settings.fifo_enabled {
         return Err(CanError::SettingsError);
@@ -276,7 +273,6 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
         // TODO: add wait for freeze mode
         
         can.mcr.modify(|_, w| { w
-                                .mdis().bit(!settings.enable)
                                 .rfen().bit(settings.fifo_enabled)
                                 .srxdis().bit(settings.self_reception)
                                 .irmq().bit(settings.individual_masking)

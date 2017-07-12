@@ -200,7 +200,11 @@ impl From<MessageBufferCode> for u8 {
         }
     }
 }
-   
+
+fn enable(can: &CAN0) {
+    can.mcr.modify(|_, w| w.mdis()._0());
+    while can.mcr.read().lpmack().is_1() {}
+}
 
 fn reset_blocking(can: &CAN0) {
     can.ctrl1.write(|w| w.clksrc()._1());

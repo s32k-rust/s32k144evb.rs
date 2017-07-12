@@ -4,6 +4,7 @@ use bit_field::BitField;
 
 use s32k144::{
     CAN0,
+    PCC,
 };
 
 use s32k144::can0::mcr::IDAMW;
@@ -256,6 +257,10 @@ pub fn configure(settings: CanSettings) -> Result<(), CanError> {
     cortex_m::interrupt::free(|cs| {
         
         let can = CAN0.borrow(cs);
+        let pcc = PCC.borrow(cs);
+        
+        pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
+        
         enter_freeze(can);
 
         // TODO: add wait for freeze mode

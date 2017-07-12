@@ -218,7 +218,6 @@ fn reset_blocking(can: &CAN0) {
 
 fn enter_freeze(can: &CAN0) {
     can.mcr.modify(|_, w| w
-                   .mdis()._1()
                    .frz()._1()
                    .halt()._1()
     );

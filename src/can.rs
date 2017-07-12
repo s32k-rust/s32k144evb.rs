@@ -205,6 +205,16 @@ impl From<MessageBufferCode> for u8 {
 }
    
 
+fn reset_blocking(can: &CAN0) {
+    can.ctrl1.write(|w| w.clksrc()._1());
+    can.mcr.write(|w| w.mdis()._0());
+    while can.mcr.read().lpmack().is_1() {}
+    can.mcr.write(|w| w.softrst()._1());
+    while can.mcr.read().softrst().is_1() {}
+    can.mcr.write(|w| w.mdis()._1());
+    while can.mcr.read().lpmack().is_0() {}
+}
+
 fn enter_freeze(can: &CAN0) {
     can.mcr.modify(|_, w| w
                    .mdis()._1()

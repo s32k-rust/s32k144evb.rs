@@ -226,6 +226,14 @@ fn enter_freeze(can: &CAN0) {
     while can.mcr.read().frzack().is_0() {}
 }
 
+fn leave_freeze(can: &CAN0) {
+    can.mcr.modify(|_, w| w
+                   .halt()._0()
+                   .frz()._0()
+    );
+    while can.mcr.read().frzack().is_1() {}
+}    
+
 pub enum CanError {
     FreezeModeError,
     SettingsError,
@@ -310,7 +318,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
                                            .lpb().bit(settings.loopback_mode)                                
         }});
 
-        // TODO: Remember to enable and recover from freeze, but first do something to the message boxes
+        leave_freeze(can);
 
         // Make some acceptance test to see if the configurations have been applied
 

@@ -218,6 +218,8 @@ fn enter_freeze(can: &CAN0) {
                    .frz()._1()
                    .halt()._1()
     );
+    // TODO: sense if it takes forever to enter freeze mode
+    while can.mcr.read().frzack().is_0() {}
 }
 
 pub enum CanError {
@@ -269,8 +271,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
         
         enter_freeze(can);
-
-        // TODO: add wait for freeze mode
+        
         
         can.mcr.modify(|_, w| { w
                                 .rfen().bit(settings.fifo_enabled)

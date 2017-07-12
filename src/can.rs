@@ -325,7 +325,8 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         return Ok(());
     })       
 }
- 
+
+#[derive(Debug)]
 pub enum TransmitError {
     MailboxBusy,
     MailboxConfigurationError,

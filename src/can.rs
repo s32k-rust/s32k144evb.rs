@@ -202,6 +202,22 @@ impl From<MessageBufferCode> for u8 {
     }
 }
 
+
+struct MessageBufferHeader {
+    extended_data_length: bool,
+    bit_rate_switch: bool,
+    error_state_indicator: bool,
+    code: MessageBufferCode,
+    substitute_remote_request: bool,
+    id_extended: bool,
+    remote_transmission_request: bool,
+    data_length_code: u8,
+    time_stamp: u16,
+    priority: u8,
+    id: u32,
+}
+
+
 fn enable(can: &CAN0) {
     can.mcr.modify(|_, w| w.mdis()._0());
     while can.mcr.read().lpmack().is_1() {}
@@ -324,6 +340,34 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
 
         return Ok(());
     })       
+}
+
+fn configure_messagebuffer(can: &CAN0, header: &MessageBufferHeader, mailbox: usize) {
+    let start_adress = mailbox*4;
+
+    can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32
+                                                                .set_bit(31, header.extended_data_length)
+                                                                .set_bit(30, header.bit_rate_switch)
+                                                                .set_bit(29, header.error_state_indicator)
+                                                                .set_bits(24..28, u8::from(header.code) as u32)
+                                                                .set_bit(22, header.substitute_remote_request)
+                                                                .set_bit(21, header.id_extended)
+                                                                .set_bit(20, header.remote_transmission_request)
+                                                                .set_bits(16..20, header.data_length_code as u32)
+                                                                .set_bits(0..15, header.time_stamp as u32)
+                                                                .get_bits(0..32))
+    });
+                                                        
+    can.embedded_ram[start_adress + 1].write(|w| {
+        let mut bm = 0u32;
+        bm.set_bits(29..32, header.priority as u32);
+        if header.id_extended {
+            bm.set_bits(0..29, header.id);
+        } else {
+            bm.set_bits(18..29, header.id);
+        }
+        unsafe{w.bits(bm)}
+    });
 }
 
 #[derive(Debug)]

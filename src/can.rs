@@ -112,6 +112,7 @@ impl Default for CanSettings {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum ClockSource {
     Peripheral,
     Oscilator,
@@ -272,7 +273,13 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         let pcc = PCC.borrow(cs);
         
         pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
+
+        reset_blocking(can);
+
+        // first set clock source
+        can.ctrl1.write(|w| w.clksrc().bit(settings.clock_source.clone().into()));
         
+        enable(can);
         enter_freeze(can);
         
         

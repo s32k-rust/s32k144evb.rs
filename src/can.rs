@@ -250,6 +250,7 @@ fn leave_freeze(can: &CAN0) {
     while can.mcr.read().frzack().is_1() {}
 }    
 
+#[derive(Debug)]
 pub enum CanError {
     FreezeModeError,
     SettingsError,

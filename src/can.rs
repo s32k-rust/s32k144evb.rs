@@ -68,14 +68,6 @@ pub struct CanSettings {
     /// Between Peripheral Clock Frequency and CAN Bit Rate" 
     pub last_message_buffer: u8,
 
-    /// This 8-bit field defines the ratio between the PE clock frequency and the Serial Clock (Sclock) frequency.
-    /// The Sclock period defines the time quantum of the CAN protocol. For the reset value, the Sclock
-    /// frequency is equal to the PE clock frequency. The Maximum value of this field is 0xFF, that gives a
-    /// minimum Sclock frequency equal to the PE clock frequency divided by 256. See Section "Protocol
-    /// Timing". This field can be written only in Freeze mode because it is blocked by hardware in other modes.
-    /// Sclock frequency = PE clock frequency / (PRESDIV + 1)
-    pub prescale_divisor: u8,
-
     /// This bit configures FlexCAN to operate in Loop-Back mode. In this mode, FlexCAN performs an internal
     /// loop back that can be used for self test operation. The bit stream output of the transmitter is fed back
     /// internally to the receiver input. The Rx CAN input pin is ignored and the Tx CAN output goes to the
@@ -103,7 +95,6 @@ impl Default for CanSettings {
             dma_enable: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
             last_message_buffer: 0b0001111,
-            prescale_divisor: 0,
             loopback_mode: false,
             can_frequency: 1000000,
             clock_source: ClockSource::Oscilator,
@@ -327,7 +318,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         });
         
         can.ctrl1.modify(|_, w| { unsafe { w
-                                           .presdiv().bits(settings.prescale_divisor)
+                                           .presdiv().bits(presdiv as u8)
                                            .pseg1().bits(pseg1 as u8)
                                            .pseg2().bits(pseg2 as u8)
                                            .propseg().bits(propseg as u8)

@@ -224,12 +224,12 @@ fn enable(can: &CAN0) {
 }
 
 fn reset_blocking(can: &CAN0) {
-    can.ctrl1.write(|w| w.clksrc()._1());
-    can.mcr.write(|w| w.mdis()._0());
+    can.ctrl1.modify(|_, w| w.clksrc()._1());
+    can.mcr.modify(|_, w| w.mdis()._0());
     while can.mcr.read().lpmack().is_1() {}
-    can.mcr.write(|w| w.softrst()._1());
+    can.mcr.modify(|_, w| w.softrst()._1());
     while can.mcr.read().softrst().is_1() {}
-    can.mcr.write(|w| w.mdis()._1());
+    can.mcr.modify(|_, w| w.mdis()._1());
     while can.mcr.read().lpmack().is_0() {}
 }
 
@@ -301,7 +301,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         reset_blocking(can);
 
         // first set clock source
-        can.ctrl1.write(|w| w.clksrc().bit(settings.clock_source.clone().into()));
+        can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source.clone().into()));
         
         enable(can);
         enter_freeze(can);
@@ -406,13 +406,13 @@ pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitErro
         // 3. Write the ID word.
         match message.id {
             CanID::Extended(id) => {
-                unsafe {can.embedded_ram[start_adress+1].write(|w| w.bits(
+                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
                     0u32.set_bits(0..29, id)
                         .get_bits(0..32)
                 ))};
             },
             CanID::Standard(id) => {
-                unsafe {can.embedded_ram[start_adress+1].write(|w| w.bits(
+                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
                     0u32.set_bits(18..29, id as u32)
                         .get_bits(0..32)
                 ))};

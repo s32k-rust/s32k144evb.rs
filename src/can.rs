@@ -90,7 +90,7 @@ impl Default for CanSettings {
         CanSettings{
             fifo_enabled: false,
             warning_interrupt: false,
-            self_reception: false,
+            self_reception: true,
             individual_masking: false,
             dma_enable: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
@@ -301,7 +301,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         
         can.mcr.modify(|_, w| { w
                                 .rfen().bit(settings.fifo_enabled)
-                                .srxdis().bit(settings.self_reception)
+                                .srxdis().bit(!settings.self_reception)
                                 .irmq().bit(settings.individual_masking)
                                 .dma().bit(settings.dma_enable);
 

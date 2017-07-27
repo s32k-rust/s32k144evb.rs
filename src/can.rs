@@ -215,6 +215,8 @@ fn enable(can: &CAN0) {
 }
 
 fn reset_blocking(can: &CAN0) {
+    can.mcr.modify(|_, w| w.mdis()._1());
+    while can.mcr.read().lpmack().is_0() {}
     can.ctrl1.modify(|_, w| w.clksrc()._1());
     can.mcr.modify(|_, w| w.mdis()._0());
     while can.mcr.read().lpmack().is_1() {}

@@ -21,6 +21,7 @@ use s32k144evb::can::{
     CanSettings,
     CanMessage,
     CanID,
+    MessageBufferHeader,
 };
 
 
@@ -33,6 +34,8 @@ fn main() {
     let mut can_settings = CanSettings::default();    
     can_settings.source_frequency = 8000000;
     can_settings.self_reception = false;
+
+    let can_mb_settings = [MessageBufferHeader::default_transmit(), MessageBufferHeader::default_receive()];
 
     // Enable and configure the system oscillator
     cortex_m::interrupt::free(|cs| {
@@ -51,7 +54,7 @@ fn main() {
         scg.sosccsr.modify(|_, w| w.soscen()._1());
     });
 
-    can::init(&can_settings).unwrap();
+    can::init(&can_settings, &can_mb_settings).unwrap();
 
     let message = CanMessage{
         id: CanID::Standard(0),
@@ -64,7 +67,7 @@ fn main() {
         let loop_max = 100000;
         for i in 0..loop_max {
             if i == 0 {
-                can::transmit(&message, 6).unwrap();           
+                can::transmit(&message, 0).unwrap();           
             }
         }
     }

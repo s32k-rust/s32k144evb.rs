@@ -58,17 +58,6 @@ pub struct CanSettings {
     /// Structure".
     pub id_acceptance_mode: IdAcceptanceMode,
 
-    /// Number Of The Last Message Buffer
-    ///
-    /// This 7-bit field defines the number of the last Message Buffers that will take part in the matching and
-    /// arbitration processes. The reset value (0x0F) is equivalent to a 16 MB configuration.
-    ///
-    /// Additionally, the definition of MAXMB value must take into account the region of MBs occupied by Rx
-    /// FIFO and its ID filters table space defined by RFFN bit in CAN_CTRL2 register. MAXMB also impacts the
-    /// definition of the minimum number of peripheral clocks per CAN bit as described in Table "Minimum Ratio
-    /// Between Peripheral Clock Frequency and CAN Bit Rate" 
-    pub last_message_buffer: u8,
-
     /// This bit configures FlexCAN to operate in Loop-Back mode. In this mode, FlexCAN performs an internal
     /// loop back that can be used for self test operation. The bit stream output of the transmitter is fed back
     /// internally to the receiver input. The Rx CAN input pin is ignored and the Tx CAN output goes to the
@@ -95,7 +84,6 @@ impl Default for CanSettings {
             individual_masking: false,
             dma_enable: false,
             id_acceptance_mode: IdAcceptanceMode::FormatA,
-            last_message_buffer: 0b0001111,
             loopback_mode: false,
             can_frequency: 1000000,
             clock_source: ClockSource::Oscilator,
@@ -195,7 +183,7 @@ impl From<MessageBufferCode> for u8 {
 }
 
 
-struct MessageBufferHeader {
+pub struct MessageBufferHeader {
     extended_data_length: bool,
     bit_rate_switch: bool,
     error_state_indicator: bool,
@@ -210,7 +198,7 @@ struct MessageBufferHeader {
 }
 
 impl MessageBufferHeader {
-    fn default_transmit() -> Self {
+    pub fn default_transmit() -> Self {
         MessageBufferHeader{
             extended_data_length: false,
             bit_rate_switch: false,
@@ -226,7 +214,7 @@ impl MessageBufferHeader {
         }
     }
 
-    fn default_receive() -> Self {
+    pub fn default_receive() -> Self {
         MessageBufferHeader{
             extended_data_length: false,
             bit_rate_switch: false,
@@ -285,7 +273,7 @@ pub enum CanError {
     ConfigurationFailed,
 }
 
-pub fn init(settings: &CanSettings) -> Result<(), CanError> {
+pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHeader]) -> Result<(), CanError> {
 
     if settings.dma_enable && !settings.fifo_enabled {
         return Err(CanError::SettingsError);
@@ -298,6 +286,8 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
     if settings.source_frequency < settings.can_frequency*5 {
         return Err(CanError::SettingsError);
     }
+
+    // TODO: check if message_buffer_settings are longer than max MB available
     
     let presdiv = (settings.source_frequency / settings.can_frequency) / 25;
     let tqs = ( settings.source_frequency / (presdiv + 1) ) / settings.can_frequency;
@@ -355,7 +345,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
                                     IdAcceptanceMode::FormatD => w.idam().variant(IDAMW::_11),
                                 };
                                 
-                                unsafe { w.maxmb().bits(settings.last_message_buffer) };
+                                unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
 
                                 w
         });
@@ -376,15 +366,10 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         • Other entries in each Message Buffer should be initialized as required
          */
 
-        let transmit_header = MessageBufferHeader::default_transmit();
-        let receive_header = MessageBufferHeader::default_receive();
-        
-        for mb in 0..settings.last_message_buffer {
-            configure_messagebuffer(can, &transmit_header, mb as usize);
+        for mb in 0..message_buffer_settings.len() {
+            configure_messagebuffer(can, &message_buffer_settings[mb], mb as usize);
         }
 
-        configure_messagebuffer(can, &receive_header, settings.last_message_buffer as usize);
-        
         leave_freeze(can);
 
         // Make some acceptance test to see if the configurations have been applied
@@ -478,7 +463,7 @@ pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitErro
                 bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, message.data[index] as u32);
                 unsafe{ w.bits(bitmask) }
             });
-    }   
+        }   
 
         
         // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate

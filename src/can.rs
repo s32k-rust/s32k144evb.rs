@@ -254,7 +254,6 @@ fn enter_freeze(can: &CAN0) {
                    .frz()._1()
                    .halt()._1()
     );
-    // TODO: sense if it takes forever to enter freeze mode
     while can.mcr.read().frzack().is_0() {}
 }
 

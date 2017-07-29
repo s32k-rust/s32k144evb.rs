@@ -209,6 +209,40 @@ struct MessageBufferHeader {
     id: u32,
 }
 
+impl MessageBufferHeader {
+    fn default_transmit() -> Self {
+        MessageBufferHeader{
+            extended_data_length: false,
+            bit_rate_switch: false,
+            error_state_indicator: false,
+            code: MessageBufferCode::Transmit(TransmitBufferCode::Inactive),
+            substitute_remote_request: false,
+            id_extended: false,
+            remote_transmission_request: false,
+            data_length_code: 0,
+            time_stamp: 0,
+            priority: 0,
+            id: 0,
+        }
+    }
+
+    fn default_receive() -> Self {
+        MessageBufferHeader{
+            extended_data_length: false,
+            bit_rate_switch: false,
+            error_state_indicator: false,
+            code: MessageBufferCode::Receive(ReceiveBufferCode::Empty),
+            substitute_remote_request: false,
+            id_extended: false,
+            remote_transmission_request: false,
+            data_length_code: 0,
+            time_stamp: 0,
+            priority: 0,
+            id: 0,
+        }
+    }
+}
+
 
 fn enable(can: &CAN0) {
     can.mcr.modify(|_, w| w.mdis()._0());
@@ -341,34 +375,9 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         • If Rx FIFO was enabled, the ID filter table must be initialized
         • Other entries in each Message Buffer should be initialized as required
          */
-        let transmit_header = MessageBufferHeader{
-            extended_data_length: false,
-            bit_rate_switch: false,
-            error_state_indicator: false,
-            code: MessageBufferCode::Transmit(TransmitBufferCode::Inactive),
-            substitute_remote_request: false,
-            id_extended: false,
-            remote_transmission_request: false,
-            data_length_code: 0,
-            time_stamp: 0,
-            priority: 0,
-            id: 0,
-        };
-            
-        let receive_header = MessageBufferHeader{
-            extended_data_length: false,
-            bit_rate_switch: false,
-            error_state_indicator: false,
-            code: MessageBufferCode::Receive(ReceiveBufferCode::Empty),
-            substitute_remote_request: false,
-            id_extended: false,
-            remote_transmission_request: false,
-            data_length_code: 0,
-            time_stamp: 0,
-            priority: 0,
-            id: 0,
-        };
-            
+
+        let transmit_header = MessageBufferHeader::default_transmit();
+        let receive_header = MessageBufferHeader::default_receive();
         
         for mb in 0..settings.last_message_buffer {
             configure_messagebuffer(can, &transmit_header, mb as usize);

@@ -420,7 +420,7 @@ pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitErro
 
         let can = CAN0.borrow(cs);
 
-        // TODO: 1. Check whether the respective interrupt bit is set and clear it.
+        // 1. Check whether the respective interrupt bit is set and clear it.
         can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
         
         /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the

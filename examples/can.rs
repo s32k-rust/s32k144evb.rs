@@ -56,7 +56,7 @@ fn main() {
 
     can::init(&can_settings, &can_mb_settings).unwrap();
 
-    let message = CanMessage{
+    let mut message = CanMessage{
         id: CanID::Standard(0),
         dlc: 0,
         data: [0; 8],
@@ -65,9 +65,12 @@ fn main() {
     loop {
 
         let loop_max = 100000;
-        for i in 0..loop_max {
-            if i == 0 {
-                can::transmit(&message, 0).unwrap();           
+        for n in 0..256 {
+            message.id = CanID::Standard(n);
+            for i in 0..loop_max {
+                if i == 0 {
+                    can::transmit(&message, 0).unwrap();           
+                }
             }
         }
     }

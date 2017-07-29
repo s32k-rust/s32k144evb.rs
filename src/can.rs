@@ -5,6 +5,7 @@ use bit_field::BitField;
 use s32k144::{
     CAN0,
     PCC,
+    PORTE,
 };
 
 use s32k144::can0::mcr::IDAMW;
@@ -289,6 +290,12 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         
         let can = CAN0.borrow(cs);
         let pcc = PCC.borrow(cs);
+        let porte = PORTE.borrow(cs);
+        
+        // Configure the can i/o pins
+        pcc.pcc_porte.modify(|_, w| w.cgc()._1());
+        porte.pcr4.modify(|_, w| w.mux()._101());
+        porte.pcr5.modify(|_, w| w.mux()._101());
         
         pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
 

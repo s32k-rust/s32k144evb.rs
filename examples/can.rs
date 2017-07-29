@@ -30,11 +30,8 @@ fn main() {
     wdog_settings.enable = false;
     wdog::configure(wdog_settings);
 
-    let mut can_settings = CanSettings::default();
-    
+    let mut can_settings = CanSettings::default();    
     can_settings.source_frequency = 8000000;
-    can_settings.clock_source = can::ClockSource::Oscilator;
-
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator

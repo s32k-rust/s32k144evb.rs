@@ -3,12 +3,18 @@
 
 #[macro_use]
 extern crate cortex_m;
+extern crate s32k144;
 extern crate s32k144evb;
 extern crate bit_field;
 
 use bit_field::BitField;
 
 use cortex_m::asm;
+
+use s32k144::{
+    PCC,
+    SCG,
+};
 
 use s32k144evb::{
     can,
@@ -30,11 +36,29 @@ fn main() {
 
     let mut can_settings = CanSettings::default();
     
-    can_settings.source_frequency = 12000000;
-    can_settings.clock_source = can::ClockSource::Peripheral;
+    can_settings.source_frequency = 8000000;
+    can_settings.clock_source = can::ClockSource::Oscilator;
 
     can_settings.self_reception = false;
-    
+
+    // Enable and configure the system oscillator
+    cortex_m::interrupt::free(|cs| {
+        let scg = SCG.borrow(cs);
+        let pcc = PCC.borrow(cs);
+        
+        scg.sosccfg.modify(|_, w| w
+                           .range()._11()
+                           .hgo()._1()
+                           .erefs()._1()
+        );
+        
+        scg.soscdiv.modify(|_, w| w
+                           .soscdiv2().bits(0b001)
+        );
+
+        scg.sosccsr.modify(|_, w| w.soscen()._1());
+    });
+
     can::init(&can_settings).unwrap();
 
     let message = CanMessage{

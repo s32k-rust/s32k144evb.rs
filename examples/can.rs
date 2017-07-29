@@ -9,7 +9,6 @@ extern crate s32k144evb;
 use cortex_m::asm;
 
 use s32k144::{
-    PCC,
     SCG,
 };
 
@@ -41,7 +40,6 @@ fn main() {
     // Enable and configure the system oscillator
     cortex_m::interrupt::free(|cs| {
         let scg = SCG.borrow(cs);
-        let pcc = PCC.borrow(cs);
         
         scg.sosccfg.modify(|_, w| w
                            .range()._11()

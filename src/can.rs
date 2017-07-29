@@ -249,7 +249,7 @@ fn enable(can: &CAN0) {
     while can.mcr.read().lpmack().is_1() {}
 }
 
-fn reset_blocking(can: &CAN0) {
+fn reset(can: &CAN0) {
     can.mcr.modify(|_, w| w.mdis()._1());
     while can.mcr.read().lpmack().is_0() {}
     can.ctrl1.modify(|_, w| w.clksrc()._1());
@@ -333,7 +333,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         
         pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
 
-        reset_blocking(can);
+        reset(can);
 
         // first set clock source
         can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source.clone().into()));

@@ -5,9 +5,6 @@
 extern crate cortex_m;
 extern crate s32k144;
 extern crate s32k144evb;
-extern crate bit_field;
-
-use bit_field::BitField;
 
 use cortex_m::asm;
 

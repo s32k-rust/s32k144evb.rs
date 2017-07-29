@@ -282,7 +282,7 @@ pub fn init(settings: &CanSettings) -> Result<(), CanError> {
         };
     
     let pseg1 = ( (tqs - (pseg2 + 1) ) / 2 ) - 1;
-    let propseg = tqs - (pseg2 + 1) - (pseg1 + 1) - 1;
+    let propseg = tqs - (pseg2 + 1) - (pseg1 + 1) - 2;
             
 
     cortex_m::interrupt::free(|cs| {

@@ -68,8 +68,8 @@ fn main() {
     };
     
     loop {
-        
-        let loop_max = 10000;
+
+        let loop_max = 100000;
         for i in 0..loop_max {
             if i == 0 {
                 can::transmit(&message, 6).unwrap();           

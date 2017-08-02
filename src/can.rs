@@ -10,17 +10,13 @@ use s32k144::{
 
 use s32k144::can0::mcr::IDAMW;
 
-pub enum CanID {
-    Standard(u16),
-    Extended(u32),
+pub trait CanFrame {
+    fn with_data(id: u32, extended_id: bool, data: &[u8]) -> Self;
+    fn extended_id(&self) -> bool;
+    fn id(&self) -> u32;
+    fn data(&self) -> &[u8];
 }
-
-pub struct CanMessage {
-    pub id: CanID,
-    pub dlc: u8,
-    pub data: [u8; 8],
-}
-
+    
 pub struct CanSettings {
 
     /// This bit controls whether the Rx FIFO feature is enabled or not. When RFEN is set, MBs 0 to 5 cannot be
@@ -412,7 +408,7 @@ pub enum TransmitError {
     MailboxValueError,
 }
 
-pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitError> {
+pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), TransmitError> {
     let start_adress = mailbox*4;
     
     cortex_m::interrupt::free(|cs| {
@@ -440,26 +436,23 @@ pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitErro
         }
         
         // 3. Write the ID word.
-        match message.id {
-            CanID::Extended(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(0..29, id)
-                        .get_bits(0..32)
-                ))};
-            },
-            CanID::Standard(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(18..29, id as u32)
-                        .get_bits(0..32)
-                ))};
-            },
+        if message.extended_id() {
+            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                0u32.set_bits(0..29, message.id())
+                    .get_bits(0..32)
+            ))};
+        } else {
+            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                0u32.set_bits(18..29, message.id())
+                    .get_bits(0..32)
+            ))};
         }
         
         // 4. Write the data bytes.
-        for index in 0..(message.dlc as usize) {
+        for index in 0..message.data().len() as usize {
             can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
                 let mut bitmask = r.bits();
-                bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, message.data[index] as u32);
+                bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, message.data()[index] as u32);
                 unsafe{ w.bits(bitmask) }
             });
         }   
@@ -469,8 +462,8 @@ pub fn transmit(message: &CanMessage, mailbox: usize) -> Result<(), TransmitErro
         // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
         can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
             0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferCode::DataRemote)) as u32)
-                .set_bit(21, match message.id {CanID::Extended(ref _id) => true, CanID::Standard(ref _id) => false})
-                .set_bits(16..20, message.dlc as u32)
+                .set_bit(21, message.extended_id())
+                .set_bits(16..20, message.data().len() as u32)
                 .get_bits(0..32)
         )});
         

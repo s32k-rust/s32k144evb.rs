@@ -19,10 +19,31 @@ use s32k144evb::{
 
 use s32k144evb::can::{
     CanSettings,
-    CanMessage,
-    CanID,
     MessageBufferHeader,
 };
+
+struct CanFrame {
+    id: u32,
+    extended_id: bool,
+    dlc: u8,
+    data: [u8; 8],
+}
+
+impl s32k144evb::can::CanFrame for CanFrame {
+    fn with_data(id: u32, extended_id: bool, data: &[u8]) -> Self {
+        let mut data_array = [0; 8];
+        for index in 0..data.len() {
+            data_array[index] = data[index];
+        }
+        CanFrame{id: id, extended_id: extended_id, dlc: data.len() as u8, data: data_array}
+    }
+
+    fn extended_id(&self) -> bool {self.extended_id}
+
+    fn id(&self) -> u32 {self.id}
+
+    fn data(&self) -> &[u8] {&self.data[0..self.dlc as usize]}
+}
 
 
 fn main() {
@@ -56,8 +77,9 @@ fn main() {
 
     can::init(&can_settings, &can_mb_settings).unwrap();
 
-    let mut message = CanMessage{
-        id: CanID::Standard(0),
+    let mut message = CanFrame{
+        id: 0,
+        extended_id: false,
         dlc: 0,
         data: [0; 8],
     };
@@ -66,7 +88,7 @@ fn main() {
 
         let loop_max = 100000;
         for n in 0..256 {
-            message.id = CanID::Standard(n);
+            message.id = n;
             for i in 0..loop_max {
                 if i == 0 {
                     can::transmit(&message, 0).unwrap();           

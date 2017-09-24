@@ -1,6 +1,6 @@
 [package]
 authors = ["Kjetil Kjeka <kjetilkjeka@gmail.com>"]
-categories = ["embedded", "no-std"]
+categories = ["embedded", "no-std", "hardware-support"]
 repository = "https://github.com/kjetilkjeka/s32k144evb.rs"
 description = "Board support crate for s32k144evb"
 keywords = ["arm", "cortex-m", "s32k144", "template"]

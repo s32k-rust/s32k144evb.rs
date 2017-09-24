@@ -452,7 +452,7 @@ pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), Transmit
         for index in 0..message.data().len() as usize {
             can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
                 let mut bitmask = r.bits();
-                bitmask.set_bits((8*index%4) as u8..(8*(1+index%4)) as u8, message.data()[index] as u32);
+                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, message.data()[index] as u32);
                 unsafe{ w.bits(bitmask) }
             });
         }   

@@ -80,8 +80,8 @@ fn main() {
     let mut message = CanFrame{
         id: 0,
         extended_id: false,
-        dlc: 0,
-        data: [0; 8],
+        dlc: 8,
+        data: [1, 2, 3, 4, 5, 6, 7, 8],
     };
     
     loop {

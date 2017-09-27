@@ -180,17 +180,17 @@ impl From<MessageBufferCode> for u8 {
 
 
 pub struct MessageBufferHeader {
-    extended_data_length: bool,
-    bit_rate_switch: bool,
-    error_state_indicator: bool,
-    code: MessageBufferCode,
-    substitute_remote_request: bool,
-    id_extended: bool,
-    remote_transmission_request: bool,
-    data_length_code: u8,
-    time_stamp: u16,
-    priority: u8,
-    id: u32,
+    pub extended_data_length: bool,
+    pub bit_rate_switch: bool,
+    pub error_state_indicator: bool,
+    pub code: MessageBufferCode,
+    pub substitute_remote_request: bool,
+    pub id_extended: bool,
+    pub remote_transmission_request: bool,
+    pub data_length_code: u8,
+    pub time_stamp: u16,
+    pub priority: u8,
+    pub id: u32,
 }
 
 impl MessageBufferHeader {

@@ -115,14 +115,21 @@ pub enum IdAcceptanceMode {
     FormatD,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, PartialEq)]
 pub enum MessageBufferCode {
     Receive(ReceiveBufferCode),
-    Transmit(TransmitBufferCode),
+    Transmit(TransmitBufferState),
 }
 
-#[derive(Clone, Copy)]
-pub enum ReceiveBufferCode {
+#[derive(Clone, PartialEq)]
+pub struct ReceiveBufferCode {
+    pub state: ReceiveBufferState,
+    /// FlexCAN is updating the contents of the MB, the CPU must not access the MB
+    pub busy: bool,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum ReceiveBufferState {
     /// MB is not active
     Inactive,
 
@@ -137,13 +144,10 @@ pub enum ReceiveBufferCode {
 
     /// A frame was configured to recongnize a Remote Reuqest Frame and transmit a response Frame in return
     Ranswer,
-
-    /// FlexCAN is updating the contents of the MB, the CPU must not access the MB
-    Busy,
 }
 
-#[derive(Clone, Copy)]
-pub enum TransmitBufferCode {
+#[derive(Clone, PartialEq)]
+pub enum TransmitBufferState {
     /// MB is not active
     Inactive,
 
@@ -160,20 +164,41 @@ pub enum TransmitBufferCode {
 impl From<MessageBufferCode> for u8 {
     fn from(code: MessageBufferCode) -> u8 {
         match code {
-            MessageBufferCode::Receive(ref r) => match *r {
-                ReceiveBufferCode::Inactive => 0b0000,
-                ReceiveBufferCode::Empty => 0b0100,
-                ReceiveBufferCode::Full => 0b0010,
-                ReceiveBufferCode::Overrun => 0b0110,
-                ReceiveBufferCode::Ranswer => 0b1010,
-                ReceiveBufferCode::Busy => 0b0001, // really 0bxxx1
+            MessageBufferCode::Receive(ref r) => match r.state {
+                ReceiveBufferState::Inactive => 0u8.set_bit(0, r.busy).set_bits(1..4, 0b000).get_bits(0..4),
+                ReceiveBufferState::Empty => 0u8.set_bit(0, r.busy).set_bits(1..4, 0b010).get_bits(0..4),
+                ReceiveBufferState::Full => 0u8.set_bit(0, r.busy).set_bits(1..4, 0b001).get_bits(0..4),
+                ReceiveBufferState::Overrun => 0u8.set_bit(0, r.busy).set_bits(1..4, 0b011).get_bits(0..4),
+                ReceiveBufferState::Ranswer => 0u8.set_bit(0, r.busy).set_bits(1..4, 0b101).get_bits(0..4),
             },
             MessageBufferCode::Transmit(ref t) => match *t {
-                TransmitBufferCode::Inactive => 0b1000,
-                TransmitBufferCode::Abort => 0b1001,
-                TransmitBufferCode::DataRemote => 0b1100,
-                TransmitBufferCode::Tanswer => 0b1110,    
+                TransmitBufferState::Inactive => 0b1000,
+                TransmitBufferState::Abort => 0b1001,
+                TransmitBufferState::DataRemote => 0b1100,
+                TransmitBufferState::Tanswer => 0b1110,    
             },
+        }
+    }
+}
+
+impl From<u8> for MessageBufferCode {
+    fn from(code: u8) -> Self {
+        match code {
+            0b1000 => MessageBufferCode::Transmit(TransmitBufferState::Inactive),
+            0b1001 => MessageBufferCode::Transmit(TransmitBufferState::Abort),
+            0b1100 => MessageBufferCode::Transmit(TransmitBufferState::DataRemote),
+            0b1110 => MessageBufferCode::Transmit(TransmitBufferState::Tanswer),
+            0b0000 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}),
+            0b0001 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: true}),
+            0b0100 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
+            0b0101 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: true}),
+            0b0010 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: false}),
+            0b0011 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: true}),
+            0b0110 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: false}),
+            0b0111 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: true}),
+            0b1010 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: false}),
+            0b1011 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: true}),
+            _ => panic!("Value: {}, is not a valid MessageBufferCode", code),
         }
     }
 }
@@ -238,7 +263,7 @@ impl MessageBufferHeader {
             extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
-            code: MessageBufferCode::Transmit(TransmitBufferCode::Inactive),
+            code: MessageBufferCode::Transmit(TransmitBufferState::Inactive),
             substitute_remote_request: false,
             id_extended: false,
             remote_transmission_request: false,
@@ -254,7 +279,7 @@ impl MessageBufferHeader {
             extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
-            code: MessageBufferCode::Receive(ReceiveBufferCode::Empty),
+            code: MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
             substitute_remote_request: false,
             id_extended: false,
             remote_transmission_request: false,
@@ -419,7 +444,7 @@ fn configure_messagebuffer(can: &CAN0, header: &MessageBufferHeader, mailbox: us
                                                                 .set_bit(31, header.extended_data_length)
                                                                 .set_bit(30, header.bit_rate_switch)
                                                                 .set_bit(29, header.error_state_indicator)
-                                                                .set_bits(24..28, u8::from(header.code) as u32)
+                                                                .set_bits(24..28, u8::from(header.code.clone()) as u32)
                                                                 .set_bit(22, header.substitute_remote_request)
                                                                 .set_bit(21, header.id_extended)
                                                                 .set_bit(20, header.remote_transmission_request)
@@ -468,9 +493,9 @@ pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), Transmit
         transmitted without notification (see Mailbox inactivation). */
         let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
 
-        if current_code == MessageBufferCode::Transmit(TransmitBufferCode::DataRemote).into() {
+        if MessageBufferCode::from(current_code) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
             return Err(TransmitError::MailboxBusy);
-        } else if current_code != MessageBufferCode::Transmit(TransmitBufferCode::Inactive).into() && current_code != MessageBufferCode::Receive(ReceiveBufferCode::Inactive).into() {
+        } else if MessageBufferCode::from(current_code) != MessageBufferCode::Transmit(TransmitBufferState::Inactive) && MessageBufferCode::from(current_code) != MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}) {
             return Err(TransmitError::MailboxConfigurationError);
         }
         
@@ -500,7 +525,7 @@ pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), Transmit
         // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
         // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
         can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
-            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferCode::DataRemote)) as u32)
+            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
                 .set_bit(21, message.extended_id())
                 .set_bits(16..20, message.data().len() as u32)
                 .get_bits(0..32)

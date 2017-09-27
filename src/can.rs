@@ -180,16 +180,55 @@ impl From<MessageBufferCode> for u8 {
 
 
 pub struct MessageBufferHeader {
+    /// This bit distinguishes between CAN format and CAN FD format frames. The EDL bit
+    /// must not be set for Message Buffers configured to RANSWER with code field 0b1010
     pub extended_data_length: bool,
+
+    /// This bit defines whether the bit rate is switched inside a CAN FD format frame
     pub bit_rate_switch: bool,
+
+    /// This bit indicates if the transmitting node is error active or error passive.
     pub error_state_indicator: bool,
+
+    /// This 4-bit field can be accessed (read or write) by the CPU and by the FlexCAN module
+    /// itself, as part of the message buffer matching and arbitration process.
     pub code: MessageBufferCode,
+
+    /// Fixed recessive bit, used only in extended format. It must be set to one by the user for
+    /// transmission (Tx Buffers) and will be stored with the value received on the CAN bus for
+    /// Rx receiving buffers. It can be received as either recessive or dominant. If FlexCAN
+    /// receives this bit as dominant, then it is interpreted as an arbitration loss.
     pub substitute_remote_request: bool,
+
+    /// This field identifies whether the frame format is standard or extended.
     pub id_extended: bool,
+
+    /// This bit affects the behavior of remote frames and is part of the reception filter. See Table
+    /// 50-10, Table 50-11, (in datasheet) and the description of the RRS bit in Control 2 Register
+    /// (CAN_CTRL2) for additional details.
     pub remote_transmission_request: bool,
+
+    /// This 4-bit field is the length (in bytes) of the Rx or Tx data, which is located in offset 0x8
+    /// through 0xF of the MB space (see Table 50-9). In reception, this field is written by the
+    /// FlexCAN module, copied from the DLC (Data Length Code) field of the received frame.
+    /// In transmission, this field is written by the CPU and corresponds to the DLC field value
+    /// of the frame to be transmitted. When RTR = 1, the frame to be transmitted is a remote
+    /// frame and does not include the data field, regardless of the DLC field (see Table 50-12).
     pub data_length_code: u8,
+
+    /// This 16-bit field is a copy of the Free-Running Timer, captured for Tx and Rx frames at
+    /// the time when the beginning of the Identifier field appears on the CAN bus
     pub time_stamp: u16,
+
+    /// This 3-bit field is used only when LPRIO_EN bit is set in CAN_MCR, and it only makes
+    /// sense for Tx mailboxes. These bits are not transmitted. They are appended to the regular
+    /// ID to define the transmission priority.
     pub priority: u8,
+
+    /// In standard frame format, only the 11 most significant bits (28 to 18) are used for frame
+    /// identification in both receive and transmit cases. The 18 least significant bits are ignored.
+    /// In extended frame format, all bits are used for frame identification in both receive and
+    /// transmit cases.
     pub id: u32,
 }
 

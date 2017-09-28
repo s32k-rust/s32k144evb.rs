@@ -9,6 +9,9 @@ This boards uses OpenSDAv1 for programming and debuging
 ### J-Link interface
 J-Link supply firmware for OpenSDA hardware, with this you will be able to use the evaluation board as a J-Link programmer/debugger. For instructions how to do this look [here](https://www.segger.com/products/debug-probes/j-link-oem/j-link-firmware-models/opensda-sda-v2/), i've used this method with the OpenSDAv1 generic firmware supplied [here](https://www.segger.com/downloads/jlink#JLinkOpenSDABoardSpecificFirmwares)
 
+## Bobbin-CLI
+[Bobbin-cli](https://github.com/bobbin-rs/bobbin-cli) greatly simplifies compilation and flashing embedded software written in Rust. After installing the j-link tools, it can be installed by running ```cargo install bobbin-cli```. Run the LED example on a connected evaluation board with j-link firmware (or an external j-link) with ```bobbin load --example led``` or check out the [readme](https://github.com/bobbin-rs/bobbin-cli/blob/master/README.md) for a full description of what you can do.
+
 # License
 
 Licensed under either of

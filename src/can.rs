@@ -538,3 +538,72 @@ pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), Transmit
         Ok(())
     })
 }
+
+#[derive(Debug)]
+pub enum ReceiveError {
+    MailboxEmpty,
+    MailboxConfigurationError,
+    MailboxNonExisting,
+}
+
+pub fn receive<T: CanFrame>(mailbox: usize) -> Result<T, ReceiveError> {
+    cortex_m::interrupt::free(|cs| {
+        
+        let can = CAN0.borrow(cs);
+
+    
+        // TODO: Check that mailbox is within valid range and return error if not
+        
+        // Check if a new message has arrived
+        let new_message = can.iflag1.read().bits().get_bit(mailbox as u8);
+
+        if !new_message {
+            return Err(ReceiveError::MailboxEmpty);
+        }
+
+        // 1. Read control and Status word
+        let mut cs = can.embedded_ram[mailbox*4].read();
+
+        // check if we're reading from a receive buffer
+        if let MessageBufferCode::Receive(_) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
+        } else {
+            return Err(ReceiveError::MailboxConfigurationError);
+        }
+        
+        // 2. busy wait untill mail box no longer busy
+        loop {
+            if let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
+                if code.busy {
+                    cs = can.embedded_ram[mailbox*4].read();
+                } else {
+                    break
+                }
+            } else {
+                return Err(ReceiveError::MailboxConfigurationError);
+            }
+        }
+
+        // 3. Read contents of the mailbox
+        let extended_id = cs.bits().get_bit(21);
+        let id = if extended_id {
+            can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(0..28)
+        } else {
+            can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(18..28)
+        };
+        let dlc = cs.bits().get_bits(16..20) as usize;
+        let mut data = [0u8; 8];
+        for i in 0..dlc {
+            data[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
+        }
+        
+        let frame = T::with_data(id, extended_id, &data[0..dlc]);
+
+        // 4. Ack proper flag
+        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+
+        // 6. Read Free running timer to unlock mailbox
+        let _time = can.timer.read();
+
+        Ok(frame)
+    })
+}

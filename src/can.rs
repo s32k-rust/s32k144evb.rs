@@ -1,4 +1,4 @@
-extern crate cortex_m;
+use cortex_m;
 
 use bit_field::BitField;
 

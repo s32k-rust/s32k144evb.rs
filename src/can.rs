@@ -473,7 +473,7 @@ fn configure_messagebuffer(can: &CAN0, header: &MessageBufferHeader, mailbox: us
 pub enum TransmitError {
     MailboxBusy,
     MailboxConfigurationError,
-    MailboxValueError,
+    MailboxNonExisting,
 }
 
 pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), TransmitError> {

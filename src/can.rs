@@ -418,6 +418,10 @@ pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHead
                                            .lpb().bit(settings.loopback_mode)                                
         }});
 
+        // set filter mask to accept all
+        // TODO: Make better logic for setting filters
+        can.rxmgmask.write(unsafe {|w| w.bits(0)});
+
         /*
         • Initialize the Message Buffers
         • The Control and Status word of all Message Buffers must be initialized

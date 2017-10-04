@@ -70,6 +70,10 @@ pub fn configure(lpuart: &LPUART1, settings: UartSettings, source_frequency: u32
                       .pt().bit(settings.parity == Parity::O)
     );
 
+    lpuart.fifo.write(|w| w
+                      .txfe()._1()
+    );
+    
     // enable receiver and transmitter 
     lpuart.ctrl.modify(|_r, w| w
                        .te().set_bit()

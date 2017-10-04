@@ -1,5 +1,6 @@
 use s32k144::LPUART1;
 
+#[derive(Copy, Clone, Debug)]
 pub enum UartError {
     UnsatisfiableBaud,
 }

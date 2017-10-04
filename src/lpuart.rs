@@ -59,7 +59,7 @@ pub fn configure(lpuart: &LPUART1, settings: UartSettings, source_frequency: u32
                                   .m10().bit(settings.data_bits == DataBits::B10)
                                   .sbns().bit(settings.stop_bits == StopBits::B2)
                                   .bothedge().bit(bothedge)
-                                  .osr().bits(oversampling_ratio)
+                                  .osr().bits(oversampling_ratio-1)
                                   .sbr().bits(divisor as u16)
     });
 

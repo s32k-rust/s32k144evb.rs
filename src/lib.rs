@@ -13,6 +13,7 @@ extern crate bit_field;
 pub mod led;
 pub mod wdog;
 pub mod can;
+pub mod lpuart;
 
 #[cfg(feature = "panic-over-itm")]
 mod panic;

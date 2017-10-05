@@ -14,7 +14,7 @@ use s32k144evb::{
 fn main() {
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
-    wdog::configure(wdog_settings);
+    wdog::configure(wdog_settings).unwrap();
 
     s32k144evb::serial::init();
 
@@ -25,13 +25,11 @@ fn main() {
     }
     
     println!("Next a panic will be demonstrated by overflowing an integer");
-    let mut i: u8 = 0;
+    let mut _i: u8 = 0;
 
     loop {
-        i += 1;
+        _i += 1;
     }
-
-    
 }
 
 

@@ -18,10 +18,6 @@ embedded_types = "0.1.2"
 version = "0.3.6"
 default-features = false
 
-[dev-dependencies.s32k144evb]
-path = "."
-features = ["print-over-serial", "panic-over-serial"]
-
 [profile.dev]
 opt-level = 0
 debug = true
@@ -32,6 +28,7 @@ debug = true
 lto = true
 
 [features]
+default = ["print-over-serial", "panic-over-serial"]
 itm = []
 panic-over-itm = ["itm"]
 abort-on-panic = ["cortex-m-rt/abort-on-panic"]

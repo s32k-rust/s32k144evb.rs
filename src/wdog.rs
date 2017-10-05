@@ -4,11 +4,13 @@ use s32k144::{
     WDOG,
 };
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WatchdogWindow {
     Disabled,
     Enabled(u16),
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct WatchdogSettings {
 
     /// The watchdog counter is continously compared with the timeout value
@@ -69,6 +71,7 @@ impl Default for WatchdogSettings {
 }
              
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WatchdogError {
     ReconfigurationDisallowed,
     UnlockFailed,

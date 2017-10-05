@@ -86,10 +86,10 @@ pub fn write_fmt(fmt: fmt::Arguments) {
 #[macro_export]
 macro_rules! print {
     ($fmt:expr) => {
-        serial::write_str($fmt);
+        s32k144evb::serial::write_str($fmt);
     };
     ($($arg:tt)*) => {
-        serial::write_fmt(format_args!($($arg)*));
+        s32k144evb::serial::write_fmt(format_args!($($arg)*));
     };
 }
 

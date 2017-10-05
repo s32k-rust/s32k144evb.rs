@@ -1,4 +1,4 @@
-use s32k144::LPUART1;
+use s32k144::lpuart0;
 use embedded_types::io::TransmitError;
 
 #[derive(Copy, Clone, Debug)]
@@ -46,7 +46,7 @@ pub enum Parity {
     O,
 }
 
-pub fn configure(lpuart: &LPUART1, settings: UartSettings, source_frequency: u32) -> Result<(), UartError> {
+pub fn configure(lpuart: &lpuart0::RegisterBlock, settings: UartSettings, source_frequency: u32) -> Result<(), UartError> {
     // disable receiver and transmiter
     lpuart.ctrl.modify(|_r, w| w
                        .te().clear_bit()
@@ -85,7 +85,7 @@ pub fn configure(lpuart: &LPUART1, settings: UartSettings, source_frequency: u32
     Ok(())
 }
 
-pub fn transmit(lpuart: &LPUART1, data: u8) -> Result<(), TransmitError>{
+pub fn transmit(lpuart: &lpuart0::RegisterBlock, data: u8) -> Result<(), TransmitError>{
     if lpuart.stat.read().tdre().is_0() {
         Err(TransmitError::BufferFull)
     } else {

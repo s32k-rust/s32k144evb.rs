@@ -1,4 +1,5 @@
 use s32k144::LPUART1;
+use embedded_types::io::TransmitError;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UartError {
@@ -84,8 +85,13 @@ pub fn configure(lpuart: &LPUART1, settings: UartSettings, source_frequency: u32
     Ok(())
 }
 
-pub fn transmit(lpuart: &LPUART1, data: u8) {
-    lpuart.data.write(|w| unsafe{w.bits(data as u32)});
+pub fn transmit(lpuart: &LPUART1, data: u8) -> Result<(), TransmitError>{
+    if lpuart.stat.read().tdre().is_0() {
+        Err(TransmitError::BufferFull)
+    } else {
+        lpuart.data.write(|w| unsafe{w.bits(data as u32)});
+        Ok(())
+    }
 }
 
 fn find_decent_div(source: u32, baud: u32) -> Result<(u8, u16), UartError> {

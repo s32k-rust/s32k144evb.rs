@@ -103,3 +103,22 @@ macro_rules! println {
         print!(concat!($fmt, "\n"), $($arg)*);
     };
 }
+
+
+#[cfg(feature = "panic-over-serial")]
+#[lang = "panic_fmt"]
+unsafe extern "C" fn panic_fmt(
+    msg: fmt::Arguments,
+    file: &'static str,
+    line: u32,
+    _column: u32) -> ! {
+
+    write_fmt(format_args!("Panicked at '{}', {}:{}\n", msg, file, line));
+
+    // If running in debug mode, stop. If not, abort.
+    if cfg!(debug_assertions) {
+        loop {}
+    }
+    
+    ::core::intrinsics::abort()
+}

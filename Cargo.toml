@@ -20,7 +20,7 @@ default-features = false
 
 [dev-dependencies.s32k144evb]
 path = "."
-features = ["print-over-serial", "panic-over-itm"]
+features = ["print-over-serial", "panic-over-serial"]
 
 [profile.dev]
 opt-level = 0
@@ -37,3 +37,4 @@ panic-over-itm = ["itm"]
 abort-on-panic = ["cortex-m-rt/abort-on-panic"]
 serial = []
 print-over-serial = ["serial"]
+panic-over-serial = ["serial"]

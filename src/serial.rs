@@ -20,7 +20,7 @@ struct Port<'p>(&'p lpuart0::RegisterBlock);
 impl<'p> fmt::Write for Port<'p> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.as_bytes() {
-            blocking_transmit(|| lpuart::transmit(self.0, *c));
+            blocking_transmit(|| lpuart::transmit(self.0, *c)).unwrap();
         }
         Ok(())
     }
@@ -62,7 +62,7 @@ pub fn init() {
         let lpuart = LPUART1.borrow(cs);
         
         
-        lpuart::configure(lpuart, uart_settings, 8000000);
+        lpuart::configure(lpuart, uart_settings, 8000000).unwrap();
     });
 }
 

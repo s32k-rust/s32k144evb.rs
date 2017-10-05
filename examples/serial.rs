@@ -1,23 +1,15 @@
 #![feature(used)]
 #![no_std]
 
-#[macro_use]
 extern crate cortex_m;
 extern crate s32k144;
 #[macro_use]
 extern crate s32k144evb;
 extern crate embedded_types;
 
-use embedded_types::io::{
-    blocking_transmit,
-};
-
 use s32k144evb::{
-    lpuart,
     wdog,
 };
-
-use s32k144evb::serial;
 
 fn main() {
     let mut wdog_settings = wdog::WatchdogSettings::default();
@@ -26,14 +18,19 @@ fn main() {
 
     s32k144evb::serial::init();
 
-    
-    loop{
-        for i in 0..100000 {
-            if i == 0 {
-                println!("test");
-            }
-        }
+    println!("First demonstrate a println");
+    println!("Count to three to demonstrate formating inside println");
+    for i in 0..3 {
+        println!("I count: {}", i);
     }
+    
+    println!("Next a panic will be demonstrated by overflowing an integer");
+    let mut i: u8 = 0;
+
+    loop {
+        i += 1;
+    }
+
     
 }
 

@@ -6,7 +6,7 @@ description = "Board support crate for s32k144evb"
 keywords = ["arm", "cortex-m", "s32k144", "template"]
 license = "MIT OR Apache-2.0"
 name = "s32k144evb"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies]
 cortex-m = "0.3.1"

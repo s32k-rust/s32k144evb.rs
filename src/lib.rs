@@ -5,7 +5,7 @@
 
 
 extern crate s32k144;
-#[macro_use]
+#[cfg_attr(feature = "itm", macro_use)]
 extern crate cortex_m;
 extern crate cortex_m_rt;
 extern crate bit_field;

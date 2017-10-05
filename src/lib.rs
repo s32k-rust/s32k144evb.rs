@@ -16,5 +16,9 @@ pub mod wdog;
 pub mod can;
 pub mod lpuart;
 
+#[macro_use]
+#[cfg(feature = "serial")]
+pub mod serial;
+
 #[cfg(feature = "panic-over-itm")]
 mod panic;

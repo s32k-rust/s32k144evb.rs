@@ -20,5 +20,5 @@ pub mod lpuart;
 #[cfg(feature = "serial")]
 pub mod serial;
 
-#[cfg(feature = "panic-over-itm")]
-mod panic;
+#[cfg(feature = "itm")]
+mod itm;

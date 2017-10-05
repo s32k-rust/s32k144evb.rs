@@ -32,7 +32,8 @@ debug = true
 lto = true
 
 [features]
-panic-over-itm = []
+itm = []
+panic-over-itm = ["itm"]
 abort-on-panic = ["cortex-m-rt/abort-on-panic"]
 serial = []
 print-over-serial = ["serial"]

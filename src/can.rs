@@ -2,12 +2,11 @@ use cortex_m;
 
 use bit_field::BitField;
 
+use s32k144;
 use s32k144::can0;
 
 use s32k144::{
     CAN0,
-    PCC,
-    PORTE,
 };
 
 pub use embedded_types::can::{
@@ -17,6 +16,219 @@ pub use embedded_types::can::{
 };
 
 use embedded_types;
+
+pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
+
+impl<'a> Can<'a> {
+    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings, message_buffer_settings: &[MessageBufferHeader]) -> Result<Self, CanError> {
+        
+        if settings.source_frequency % settings.can_frequency != 0 {
+            return Err(CanError::SettingsError);
+        }
+        
+        if settings.source_frequency < settings.can_frequency*5 {
+            return Err(CanError::SettingsError);
+        }
+
+        // TODO: check if message_buffer_settings are longer than max MB available
+        
+        let presdiv = (settings.source_frequency / settings.can_frequency) / 25;
+        let tqs = ( settings.source_frequency / (presdiv + 1) ) / settings.can_frequency;
+
+        // Table 50-26 in datasheet, can standard compliant settings
+        let (pseg2, rjw) =
+            if tqs >= 8 && tqs < 10 {
+                (1, 1)
+            } else if tqs >= 10 && tqs < 15 {
+                (3, 2)
+            } else if tqs >= 15 && tqs < 20 {
+                (6, 2)
+            } else if tqs >= 20 && tqs < 26 {
+                (7, 3)
+            } else {
+                panic!("there should be between 8 and 25 tqs in an bit");
+            };
+        
+        let pseg1 = ( (tqs - (pseg2 + 1) ) / 2 ) - 1;
+        let propseg = tqs - (pseg2 + 1) - (pseg1 + 1) - 2;
+        
+
+
+        reset(can);
+
+        // first set clock source
+        can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source.clone().into()));
+        
+        enable(can);
+        enter_freeze(can);
+        
+        
+        can.mcr.modify(|_, w| { w
+                                .rfen().bit(false)
+                                .srxdis().bit(!settings.self_reception)
+                                .irmq().bit(settings.individual_masking)
+                                .dma().bit(false);
+                                unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
+                                w
+        });
+            
+        can.ctrl1.modify(|_, w| { unsafe { w
+                                           .presdiv().bits(presdiv as u8)
+                                           .pseg1().bits(pseg1 as u8)
+                                           .pseg2().bits(pseg2 as u8)
+                                           .propseg().bits(propseg as u8)
+                                           .rjw().bits(rjw as u8)
+                                           .lpb().bit(settings.loopback_mode)                                
+        }});
+
+        // set filter mask to accept all
+        // TODO: Make better logic for setting filters
+        can.rxmgmask.write(unsafe {|w| w.bits(0)});
+        
+        /*
+        • Initialize the Message Buffers
+        • The Control and Status word of all Message Buffers must be initialized
+        • If Rx FIFO was enabled, the ID filter table must be initialized
+        • Other entries in each Message Buffer should be initialized as required
+         */
+        
+        for mb in 0..message_buffer_settings.len() {
+            configure_messagebuffer(can, &message_buffer_settings[mb], mb as usize);
+        }
+        
+        leave_freeze(can);
+        
+        // Make some acceptance test to see if the configurations have been applied
+        
+        return Ok(Can(can));
+               
+    }
+
+    pub fn transmit<T: CanFrame>(&self, message: &T, mailbox: usize) -> Result<(), TransmitError> {
+        let start_adress = mailbox*4;
+    
+        let can = self.0;
+
+        // 1. Check whether the respective interrupt bit is set and clear it.
+        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+        
+        /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the
+        CODE field of the Control and Status word to request an abortion of the
+        transmission. Wait for the corresponding IFLAG bit to be asserted by polling the
+        CAN_IFLAG register or by the interrupt request if enabled by the respective IMASK
+        bit. Then read back the CODE field to check if the transmission was aborted or
+        transmitted (see Transmission abort mechanism). If backwards compatibility is
+        desired (CAN_MCR[AEN] bit is negated), just write the INACTIVE code (0b1000)
+        to the CODE field to inactivate the MB but then the pending frame may be
+        transmitted without notification (see Mailbox inactivation). */
+        let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
+
+        if MessageBufferCode::from(current_code) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
+            return Err(TransmitError::MailboxBusy);
+        } else if MessageBufferCode::from(current_code) != MessageBufferCode::Transmit(TransmitBufferState::Inactive) && MessageBufferCode::from(current_code) != MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}) {
+            return Err(TransmitError::MailboxConfigurationError);
+        }
+        
+        // 3. Write the ID word.
+        match message.id() {
+            ID::ExtendedID(id) => {
+                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                    0u32.set_bits(0..29, id.into())
+                        .get_bits(0..32)
+                ))};
+            },
+            ID::BaseID(id) => {
+                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                    0u32.set_bits(18..29, u16::from(id) as u32)
+                        .get_bits(0..32)    
+                ))};
+            },
+        }
+        
+        // 4. Write the data bytes.
+        for index in 0..message.data().len() as usize {
+            can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
+                let mut bitmask = r.bits();
+                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, message.data()[index] as u32);
+                unsafe{ w.bits(bitmask) }
+            });
+        }   
+
+        
+        // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
+        // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
+        can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
+            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
+                .set_bit(21, message.extended_id())
+                .set_bits(16..20, message.data().len() as u32)
+                .get_bits(0..32)
+        )});
+        
+        Ok(())
+    }
+
+    pub fn receive<T: CanFrame>(&self, mailbox: usize) -> Result<T, ReceiveError> {
+
+        let can = self.0;
+
+    
+        // TODO: Check that mailbox is within valid range and return error if not
+        
+        // Check if a new message has arrived
+        let new_message = can.iflag1.read().bits().get_bit(mailbox as u8);
+        
+        if !new_message {
+            return Err(ReceiveError::MailboxEmpty);
+        }
+        
+        // 1. Read control and Status word
+        let mut cs = can.embedded_ram[mailbox*4].read();
+
+        // check if we're reading from a receive buffer
+        if let MessageBufferCode::Receive(_) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
+        } else {
+            return Err(ReceiveError::MailboxConfigurationError);
+        }
+        
+        // 2. busy wait untill mail box no longer busy
+        loop {
+            if let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
+                if code.busy {
+                    cs = can.embedded_ram[mailbox*4].read();
+                } else {
+                    break
+                }
+            } else {
+                return Err(ReceiveError::MailboxConfigurationError);
+            }
+        }
+        
+        // 3. Read contents of the mailbox
+        let extended_id = cs.bits().get_bit(21);
+        let id = if extended_id {
+            ID::ExtendedID(ExtendedID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(0..28)))
+        } else {
+            ID::BaseID(BaseID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(18..28) as u16))
+        };
+        let dlc = cs.bits().get_bits(16..20) as usize;
+        let mut data = [0u8; 8];
+        for i in 0..dlc {
+            data[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
+        }
+        
+        let frame = T::with_data(id, &data[0..dlc]);
+        
+        // 4. Ack proper flag
+        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+
+        // 6. Read Free running timer to unlock mailbox
+        let _time = can.timer.read();
+        
+        Ok(frame)
+            
+    }
+    
+}
 
 pub trait CanFrame {
     fn with_data(id: ID, data: &[u8]) -> Self;
@@ -334,101 +546,6 @@ pub enum CanError {
     ConfigurationFailed,
 }
 
-pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHeader]) -> Result<(), CanError> {
-
-    if settings.source_frequency % settings.can_frequency != 0 {
-        return Err(CanError::SettingsError);
-    }
-
-    if settings.source_frequency < settings.can_frequency*5 {
-        return Err(CanError::SettingsError);
-    }
-
-    // TODO: check if message_buffer_settings are longer than max MB available
-    
-    let presdiv = (settings.source_frequency / settings.can_frequency) / 25;
-    let tqs = ( settings.source_frequency / (presdiv + 1) ) / settings.can_frequency;
-
-    // Table 50-26 in datasheet, can standard compliant settings
-    let (pseg2, rjw) =
-        if tqs >= 8 && tqs < 10 {
-            (1, 1)
-        } else if tqs >= 10 && tqs < 15 {
-            (3, 2)
-        } else if tqs >= 15 && tqs < 20 {
-            (6, 2)
-        } else if tqs >= 20 && tqs < 26 {
-            (7, 3)
-        } else {
-            panic!("there should be between 8 and 25 tqs in an bit");
-        };
-    
-    let pseg1 = ( (tqs - (pseg2 + 1) ) / 2 ) - 1;
-    let propseg = tqs - (pseg2 + 1) - (pseg1 + 1) - 2;
-            
-
-    cortex_m::interrupt::free(|cs| {
-        
-        let can = CAN0.borrow(cs);
-        let pcc = PCC.borrow(cs);
-        let porte = PORTE.borrow(cs);
-        
-        // Configure the can i/o pins
-        pcc.pcc_porte.modify(|_, w| w.cgc()._1());
-        porte.pcr4.modify(|_, w| w.mux()._101());
-        porte.pcr5.modify(|_, w| w.mux()._101());
-        
-        pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
-
-        reset(can);
-
-        // first set clock source
-        can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source.clone().into()));
-        
-        enable(can);
-        enter_freeze(can);
-        
-        
-        can.mcr.modify(|_, w| { w
-                                .rfen().bit(false)
-                                .srxdis().bit(!settings.self_reception)
-                                .irmq().bit(settings.individual_masking)
-                                .dma().bit(false);
-                                unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
-                                w
-        });
-        
-        can.ctrl1.modify(|_, w| { unsafe { w
-                                           .presdiv().bits(presdiv as u8)
-                                           .pseg1().bits(pseg1 as u8)
-                                           .pseg2().bits(pseg2 as u8)
-                                           .propseg().bits(propseg as u8)
-                                           .rjw().bits(rjw as u8)
-                                           .lpb().bit(settings.loopback_mode)                                
-        }});
-
-        // set filter mask to accept all
-        // TODO: Make better logic for setting filters
-        can.rxmgmask.write(unsafe {|w| w.bits(0)});
-
-        /*
-        • Initialize the Message Buffers
-        • The Control and Status word of all Message Buffers must be initialized
-        • If Rx FIFO was enabled, the ID filter table must be initialized
-        • Other entries in each Message Buffer should be initialized as required
-         */
-
-        for mb in 0..message_buffer_settings.len() {
-            configure_messagebuffer(can, &message_buffer_settings[mb], mb as usize);
-        }
-
-        leave_freeze(can);
-
-        // Make some acceptance test to see if the configurations have been applied
-
-        return Ok(());
-    })       
-}
 
 fn configure_messagebuffer(can: &can0::RegisterBlock, header: &MessageBufferHeader, mailbox: usize) {
     let start_adress = mailbox*4;
@@ -465,71 +582,6 @@ pub enum TransmitError {
     MailboxNonExisting,
 }
 
-pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), TransmitError> {
-    let start_adress = mailbox*4;
-    
-    cortex_m::interrupt::free(|cs| {
-
-        let can = CAN0.borrow(cs);
-
-        // 1. Check whether the respective interrupt bit is set and clear it.
-        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
-        
-        /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the
-        CODE field of the Control and Status word to request an abortion of the
-        transmission. Wait for the corresponding IFLAG bit to be asserted by polling the
-        CAN_IFLAG register or by the interrupt request if enabled by the respective IMASK
-        bit. Then read back the CODE field to check if the transmission was aborted or
-        transmitted (see Transmission abort mechanism). If backwards compatibility is
-        desired (CAN_MCR[AEN] bit is negated), just write the INACTIVE code (0b1000)
-        to the CODE field to inactivate the MB but then the pending frame may be
-        transmitted without notification (see Mailbox inactivation). */
-        let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
-
-        if MessageBufferCode::from(current_code) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
-            return Err(TransmitError::MailboxBusy);
-        } else if MessageBufferCode::from(current_code) != MessageBufferCode::Transmit(TransmitBufferState::Inactive) && MessageBufferCode::from(current_code) != MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}) {
-            return Err(TransmitError::MailboxConfigurationError);
-        }
-        
-        // 3. Write the ID word.
-        match message.id() {
-            ID::ExtendedID(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(0..29, id.into())
-                        .get_bits(0..32)
-                ))};
-            },
-            ID::BaseID(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(18..29, u16::from(id) as u32)
-                        .get_bits(0..32)    
-                ))};
-            },
-        }
-        
-        // 4. Write the data bytes.
-        for index in 0..message.data().len() as usize {
-            can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
-                let mut bitmask = r.bits();
-                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, message.data()[index] as u32);
-                unsafe{ w.bits(bitmask) }
-            });
-        }   
-
-        
-        // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
-        // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
-        can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
-            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
-                .set_bit(21, message.extended_id())
-                .set_bits(16..20, message.data().len() as u32)
-                .get_bits(0..32)
-        )});
-        
-        Ok(())
-    })
-}
 
 #[derive(Debug)]
 pub enum ReceiveError {
@@ -538,64 +590,3 @@ pub enum ReceiveError {
     MailboxNonExisting,
 }
 
-pub fn receive<T: CanFrame>(mailbox: usize) -> Result<T, ReceiveError> {
-    cortex_m::interrupt::free(|cs| {
-        
-        let can = CAN0.borrow(cs);
-
-    
-        // TODO: Check that mailbox is within valid range and return error if not
-        
-        // Check if a new message has arrived
-        let new_message = can.iflag1.read().bits().get_bit(mailbox as u8);
-
-        if !new_message {
-            return Err(ReceiveError::MailboxEmpty);
-        }
-
-        // 1. Read control and Status word
-        let mut cs = can.embedded_ram[mailbox*4].read();
-
-        // check if we're reading from a receive buffer
-        if let MessageBufferCode::Receive(_) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
-        } else {
-            return Err(ReceiveError::MailboxConfigurationError);
-        }
-        
-        // 2. busy wait untill mail box no longer busy
-        loop {
-            if let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
-                if code.busy {
-                    cs = can.embedded_ram[mailbox*4].read();
-                } else {
-                    break
-                }
-            } else {
-                return Err(ReceiveError::MailboxConfigurationError);
-            }
-        }
-
-        // 3. Read contents of the mailbox
-        let extended_id = cs.bits().get_bit(21);
-        let id = if extended_id {
-            ID::ExtendedID(ExtendedID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(0..28)))
-        } else {
-            ID::BaseID(BaseID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(18..28) as u16))
-        };
-        let dlc = cs.bits().get_bits(16..20) as usize;
-        let mut data = [0u8; 8];
-        for i in 0..dlc {
-            data[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
-        }
-        
-        let frame = T::with_data(id, &data[0..dlc]);
-
-        // 4. Ack proper flag
-        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
-
-        // 6. Read Free running timer to unlock mailbox
-        let _time = can.timer.read();
-
-        Ok(frame)
-    })
-}

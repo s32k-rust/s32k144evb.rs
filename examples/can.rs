@@ -35,6 +35,8 @@ fn main() {
 
     s32k144evb::serial::init();
 
+    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    
     let mut can_settings = CanSettings::default();    
     can_settings.source_frequency = 8000000;
     can_settings.self_reception = false;
@@ -42,23 +44,30 @@ fn main() {
     let can_mb_settings = [MessageBufferHeader::default_transmit(), MessageBufferHeader::default_receive()];
 
     // Enable and configure the system oscillator
-    cortex_m::interrupt::free(|cs| {
-        let scg = SCG.borrow(cs);
+    let scg = peripherals.SCG;
+    let porte = peripherals.PORTE;
+    let pcc = peripherals.PCC;
         
-        scg.sosccfg.modify(|_, w| w
-                           .range()._11()
-                           .hgo()._1()
-                           .erefs()._1()
-        );
-        
-        scg.soscdiv.modify(|_, w| w
-                           .soscdiv2().bits(0b001)
-        );
-
-        scg.sosccsr.modify(|_, w| w.soscen()._1());
-    });
-
-    can::init(&can_settings, &can_mb_settings).unwrap();
+    scg.sosccfg.modify(|_, w| w
+                       .range()._11()
+                       .hgo()._1()
+                       .erefs()._1()
+    );
+    
+    scg.soscdiv.modify(|_, w| w
+                       .soscdiv2().bits(0b001)
+    );
+    
+    scg.sosccsr.modify(|_, w| w.soscen()._1());
+    
+    // Configure the can i/o pins
+    pcc.pcc_porte.modify(|_, w| w.cgc()._1());
+    porte.pcr4.modify(|_, w| w.mux()._101());
+    porte.pcr5.modify(|_, w| w.mux()._101());
+    
+    pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
+    
+    let can = can::Can::init(peripherals.CAN0, &can_settings, &can_mb_settings).unwrap();
 
     loop {
 
@@ -71,7 +80,7 @@ fn main() {
             }
             for i in 0..loop_max {
                 if i == 0 {
-                    can::transmit(&message, 0).unwrap();           
+                    can.transmit(&message, 0).unwrap();           
                 }
             }
         }

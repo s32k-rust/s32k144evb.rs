@@ -2,6 +2,8 @@ use cortex_m;
 
 use bit_field::BitField;
 
+use s32k144::can0;
+
 use s32k144::{
     CAN0,
     PCC,
@@ -292,12 +294,12 @@ impl MessageBufferHeader {
 }
 
 
-fn enable(can: &CAN0) {
+fn enable(can: &can0::RegisterBlock) {
     can.mcr.modify(|_, w| w.mdis()._0());
     while can.mcr.read().lpmack().is_1() {}
 }
 
-fn reset(can: &CAN0) {
+fn reset(can: &can0::RegisterBlock) {
     can.mcr.modify(|_, w| w.mdis()._1());
     while can.mcr.read().lpmack().is_0() {}
     can.ctrl1.modify(|_, w| w.clksrc()._1());
@@ -309,7 +311,7 @@ fn reset(can: &CAN0) {
     while can.mcr.read().lpmack().is_0() {}
 }
 
-fn enter_freeze(can: &CAN0) {
+fn enter_freeze(can: &can0::RegisterBlock) {
     can.mcr.modify(|_, w| w
                    .frz()._1()
                    .halt()._1()
@@ -317,7 +319,7 @@ fn enter_freeze(can: &CAN0) {
     while can.mcr.read().frzack().is_0() {}
 }
 
-fn leave_freeze(can: &CAN0) {
+fn leave_freeze(can: &can0::RegisterBlock) {
     can.mcr.modify(|_, w| w
                    .halt()._0()
                    .frz()._0()
@@ -441,7 +443,7 @@ pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHead
     })       
 }
 
-fn configure_messagebuffer(can: &CAN0, header: &MessageBufferHeader, mailbox: usize) {
+fn configure_messagebuffer(can: &can0::RegisterBlock, header: &MessageBufferHeader, mailbox: usize) {
     let start_adress = mailbox*4;
 
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32

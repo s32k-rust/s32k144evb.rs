@@ -21,7 +21,7 @@ use embedded_types;
 pub trait CanFrame {
     fn with_data(id: ID, data: &[u8]) -> Self;
     fn extended_id(&self) -> bool;
-    fn id(&self) -> &ID;
+    fn id(&self) -> ID;
     fn data(&self) -> &[u8];
 }
 
@@ -36,14 +36,14 @@ impl CanFrame for embedded_types::can::DataFrame {
     }
     
     fn extended_id(&self) -> bool {
-        match *self.id() {
+        match self.id() {
             ID::ExtendedID(_) => true,
             ID::BaseID(_) => false,
         }            
     }
     
-    fn id(&self) -> &ID {
-        &self.id()
+    fn id(&self) -> ID {
+        self.id()
     }
     
     fn data(&self) -> &[u8] {
@@ -493,7 +493,7 @@ pub fn transmit<T: CanFrame>(message: &T, mailbox: usize) -> Result<(), Transmit
         }
         
         // 3. Write the ID word.
-        match *message.id() {
+        match message.id() {
             ID::ExtendedID(id) => {
                 unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
                     0u32.set_bits(0..29, id.into())

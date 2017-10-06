@@ -10,8 +10,6 @@ use s32k144::{
     PORTE,
 };
 
-use s32k144::can0::mcr::IDAMW;
-
 pub trait CanFrame {
     fn with_data(id: u32, extended_id: bool, data: &[u8]) -> Self;
     fn extended_id(&self) -> bool;
@@ -20,14 +18,6 @@ pub trait CanFrame {
 }
     
 pub struct CanSettings {
-
-    /// This bit controls whether the Rx FIFO feature is enabled or not. When RFEN is set, MBs 0 to 5 cannot be
-    /// used for normal reception and transmission because the corresponding memory region (0x80-0xDC) is
-    /// used by the FIFO engine as well as additional MBs (up to 32, depending on CAN_CTRL2[RFFN] setting)
-    /// which are used as Rx FIFO ID Filter Table elements. RFEN also impacts the definition of the minimum
-    /// number of peripheral clocks per CAN bit as described in the table "Minimum Ratio Between Peripheral
-    /// Clock Frequency and CAN Bit Rate"
-    pub fifo_enabled: bool,
 
     /// When asserted, this bit enables the generation of the TWRNINT and RWRNINT flags in the Error and
     /// Status Register 1 (ESR1). If WRNEN is negated, the TWRNINT and RWRNINT flags will always be zero,
@@ -46,16 +36,6 @@ pub struct CanSettings {
     /// CAN_RXFGMASK.
     pub individual_masking: bool,
     
-    /// The DMA Enable bit controls whether the DMA feature is enabled or not. The DMA feature can only be
-    /// used in Rx FIFO, consequently the bit CAN_MCR[RFEN] must be asserted. When DMA and RFEN are
-    /// set, the CAN_IFLAG1[BUF5I] generates the DMA request and no RX FIFO interrupt is generated
-    pub dma_enable: bool,
-
-    /// This 2-bit field identifies the format of the Rx FIFO ID Filter Table elements. Note that all elements of the
-    /// table are configured at the same time by this field (they are all the same format). See Section "Rx FIFO
-    /// Structure".
-    pub id_acceptance_mode: IdAcceptanceMode,
-
     /// This bit configures FlexCAN to operate in Loop-Back mode. In this mode, FlexCAN performs an internal
     /// loop back that can be used for self test operation. The bit stream output of the transmitter is fed back
     /// internally to the receiver input. The Rx CAN input pin is ignored and the Tx CAN output goes to the
@@ -76,12 +56,9 @@ pub struct CanSettings {
 impl Default for CanSettings {
     fn default() -> Self {
         CanSettings{
-            fifo_enabled: false,
             warning_interrupt: false,
             self_reception: true,
             individual_masking: false,
-            dma_enable: false,
-            id_acceptance_mode: IdAcceptanceMode::FormatA,
             loopback_mode: false,
             can_frequency: 1000000,
             clock_source: ClockSource::Oscilator,
@@ -106,17 +83,6 @@ impl From<ClockSource> for bool {
 }
     
  
-pub enum IdAcceptanceMode {
-    /// Format A: One full ID (standard and extended) per ID Filter Table element
-    FormatA,
-    /// Format B: Two full standard IDs or two partial 14-bit (standard and extended) IDs per ID Filter Table element.
-    FormatB,
-    /// Format C: Four partial 8-bit Standard IDs per ID Filter Table element.
-    FormatC,
-    /// Format D: All frames rejected.
-    FormatD,
-}
-
 #[derive(Clone, PartialEq)]
 pub enum MessageBufferCode {
     Receive(ReceiveBufferCode),
@@ -336,10 +302,6 @@ pub enum CanError {
 
 pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHeader]) -> Result<(), CanError> {
 
-    if settings.dma_enable && !settings.fifo_enabled {
-        return Err(CanError::SettingsError);
-    }            
-
     if settings.source_frequency % settings.can_frequency != 0 {
         return Err(CanError::SettingsError);
     }
@@ -394,20 +356,11 @@ pub fn init(settings: &CanSettings, message_buffer_settings: &[MessageBufferHead
         
         
         can.mcr.modify(|_, w| { w
-                                .rfen().bit(settings.fifo_enabled)
+                                .rfen().bit(false)
                                 .srxdis().bit(!settings.self_reception)
                                 .irmq().bit(settings.individual_masking)
-                                .dma().bit(settings.dma_enable);
-
-                                match settings.id_acceptance_mode {
-                                    IdAcceptanceMode::FormatA => w.idam().variant(IDAMW::_00),
-                                    IdAcceptanceMode::FormatB => w.idam().variant(IDAMW::_01),
-                                    IdAcceptanceMode::FormatC => w.idam().variant(IDAMW::_10),
-                                    IdAcceptanceMode::FormatD => w.idam().variant(IDAMW::_11),
-                                };
-                                
+                                .dma().bit(false);
                                 unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
-
                                 w
         });
         

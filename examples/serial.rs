@@ -18,17 +18,13 @@ fn main() {
 
     s32k144evb::serial::init();
 
-    println!("First demonstrate a println");
-    println!("Count to three to demonstrate formating inside println");
-    for i in 0..3 {
-        println!("I count: {}", i);
-    }
-    
+    println!("This is a println");
     println!("Next a panic will be demonstrated by overflowing an integer");
-    let mut _i: u8 = 0;
+    let mut i: u8 = 0;
 
     loop {
-        _i += 1;
+        println!("I count: {}", i);
+        i += 1;
     }
 }
 

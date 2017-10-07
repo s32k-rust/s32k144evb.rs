@@ -403,10 +403,6 @@ impl From<u8> for MessageBufferCode {
 
 
 pub struct MailboxHeader {
-    /// This bit distinguishes between CAN format and CAN FD format frames. The EDL bit
-    /// must not be set for Message Buffers configured to RANSWER with code field 0b1010
-    pub extended_data_length: bool,
-
     /// This bit defines whether the bit rate is switched inside a CAN FD format frame
     pub bit_rate_switch: bool,
 
@@ -423,21 +419,10 @@ pub struct MailboxHeader {
     /// receives this bit as dominant, then it is interpreted as an arbitration loss.
     pub substitute_remote_request: bool,
 
-    /// This field identifies whether the frame format is standard or extended.
-    pub id_extended: bool,
-
     /// This bit affects the behavior of remote frames and is part of the reception filter. See Table
     /// 50-10, Table 50-11, (in datasheet) and the description of the RRS bit in Control 2 Register
     /// (CAN_CTRL2) for additional details.
     pub remote_transmission_request: bool,
-
-    /// This 4-bit field is the length (in bytes) of the Rx or Tx data, which is located in offset 0x8
-    /// through 0xF of the MB space (see Table 50-9). In reception, this field is written by the
-    /// FlexCAN module, copied from the DLC (Data Length Code) field of the received frame.
-    /// In transmission, this field is written by the CPU and corresponds to the DLC field value
-    /// of the frame to be transmitted. When RTR = 1, the frame to be transmitted is a remote
-    /// frame and does not include the data field, regardless of the DLC field (see Table 50-12).
-    pub data_length_code: u8,
 
     /// This 16-bit field is a copy of the Free-Running Timer, captured for Tx and Rx frames at
     /// the time when the beginning of the Identifier field appears on the CAN bus
@@ -447,44 +432,30 @@ pub struct MailboxHeader {
     /// sense for Tx mailboxes. These bits are not transmitted. They are appended to the regular
     /// ID to define the transmission priority.
     pub priority: u8,
-
-    /// In standard frame format, only the 11 most significant bits (28 to 18) are used for frame
-    /// identification in both receive and transmit cases. The 18 least significant bits are ignored.
-    /// In extended frame format, all bits are used for frame identification in both receive and
-    /// transmit cases.
-    pub id: u32,
 }
 
 impl MailboxHeader {
     pub fn default_transmit() -> Self {
         MailboxHeader{
-            extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Transmit(TransmitBufferState::Inactive),
             substitute_remote_request: false,
-            id_extended: false,
             remote_transmission_request: false,
-            data_length_code: 0,
             time_stamp: 0,
             priority: 0,
-            id: 0,
         }
     }
 
     pub fn default_receive() -> Self {
         MailboxHeader{
-            extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
             substitute_remote_request: false,
-            id_extended: false,
             remote_transmission_request: false,
-            data_length_code: 0,
             time_stamp: 0,
             priority: 0,
-            id: 0,
         }
     }
 }
@@ -535,14 +506,12 @@ fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailb
     let start_adress = mailbox*4;
 
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32
-                                                                .set_bit(31, header.extended_data_length)
                                                                 .set_bit(30, header.bit_rate_switch)
                                                                 .set_bit(29, header.error_state_indicator)
                                                                 .set_bits(24..28, u8::from(header.code.clone()) as u32)
                                                                 .set_bit(22, header.substitute_remote_request)
-                                                                .set_bit(21, header.id_extended)
+                                                                .set_bit(21, true) // always accept extended frame untill filter settings is implemented
                                                                 .set_bit(20, header.remote_transmission_request)
-                                                                .set_bits(16..20, header.data_length_code as u32)
                                                                 .set_bits(0..15, header.time_stamp as u32)
                                                                 .get_bits(0..32))
     });
@@ -550,11 +519,6 @@ fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailb
     can.embedded_ram[start_adress + 1].write(|w| {
         let mut bm = 0u32;
         bm.set_bits(29..32, header.priority as u32);
-        if header.id_extended {
-            bm.set_bits(0..29, header.id);
-        } else {
-            bm.set_bits(18..29, header.id);
-        }
         unsafe{w.bits(bm)}
     });
 }
@@ -566,17 +530,13 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
     let register1 = can.embedded_ram[start_adress + 1].read().bits();
 
     MailboxHeader{
-        extended_data_length: register0.get_bit(31),
         bit_rate_switch: register0.get_bit(30),
         error_state_indicator: register0.get_bit(29),
         code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
         substitute_remote_request: register0.get_bit(22),
-        id_extended: register0.get_bit(21),
         remote_transmission_request: register0.get_bit(20),
-        data_length_code: register0.get_bits(16..20) as u8,
         time_stamp: register0.get_bits(0..15) as u16,
         priority: register1.get_bits(29..32) as u8,
-        id: match register0.get_bit(21) {true => register1.get_bits(0..29), false => register1.get_bits(18..29)},
     }
 }
 

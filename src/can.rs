@@ -20,7 +20,7 @@ use embedded_types;
 pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
 
 impl<'a> Can<'a> {
-    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings, message_buffer_settings: &[MessageBufferHeader]) -> Result<Self, CanError> {
+    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings, message_buffer_settings: &[MailboxHeader]) -> Result<Self, CanError> {
         
         if settings.source_frequency % settings.can_frequency != 0 {
             return Err(CanError::SettingsError);
@@ -93,7 +93,7 @@ impl<'a> Can<'a> {
          */
         
         for mb in 0..message_buffer_settings.len() {
-            write_buffer_header(can, &message_buffer_settings[mb], mb as usize);
+            write_mailbox_header(can, &message_buffer_settings[mb], mb as usize);
         }
         
         leave_freeze(can);
@@ -392,7 +392,7 @@ impl From<u8> for MessageBufferCode {
 }
 
 
-pub struct MessageBufferHeader {
+pub struct MailboxHeader {
     /// This bit distinguishes between CAN format and CAN FD format frames. The EDL bit
     /// must not be set for Message Buffers configured to RANSWER with code field 0b1010
     pub extended_data_length: bool,
@@ -445,9 +445,9 @@ pub struct MessageBufferHeader {
     pub id: u32,
 }
 
-impl MessageBufferHeader {
+impl MailboxHeader {
     pub fn default_transmit() -> Self {
-        MessageBufferHeader{
+        MailboxHeader{
             extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
@@ -463,7 +463,7 @@ impl MessageBufferHeader {
     }
 
     pub fn default_receive() -> Self {
-        MessageBufferHeader{
+        MailboxHeader{
             extended_data_length: false,
             bit_rate_switch: false,
             error_state_indicator: false,
@@ -521,7 +521,7 @@ pub enum CanError {
 }
 
 
-fn write_buffer_header(can: &can0::RegisterBlock, header: &MessageBufferHeader, mailbox: usize) {
+fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailbox: usize) {
     let start_adress = mailbox*4;
 
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32
@@ -549,13 +549,13 @@ fn write_buffer_header(can: &can0::RegisterBlock, header: &MessageBufferHeader, 
     });
 }
 
-fn read_buffer_header(can: &can0::RegisterBlock, mailbox: usize) -> MessageBufferHeader {
+fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHeader {
     let start_adress = mailbox*4;
 
     let register0 = can.embedded_ram[start_adress + 0].read().bits();
     let register1 = can.embedded_ram[start_adress + 1].read().bits();
 
-    MessageBufferHeader{
+    MailboxHeader{
         extended_data_length: register0.get_bit(31),
         bit_rate_switch: register0.get_bit(30),
         error_state_indicator: register0.get_bit(29),

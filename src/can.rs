@@ -93,7 +93,7 @@ impl<'a> Can<'a> {
          */
         
         for mb in 0..message_buffer_settings.len() {
-            configure_messagebuffer(can, &message_buffer_settings[mb], mb as usize);
+            write_buffer_header(can, &message_buffer_settings[mb], mb as usize);
         }
         
         leave_freeze(can);
@@ -521,7 +521,7 @@ pub enum CanError {
 }
 
 
-fn configure_messagebuffer(can: &can0::RegisterBlock, header: &MessageBufferHeader, mailbox: usize) {
+fn write_buffer_header(can: &can0::RegisterBlock, header: &MessageBufferHeader, mailbox: usize) {
     let start_adress = mailbox*4;
 
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32

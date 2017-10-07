@@ -549,6 +549,28 @@ fn configure_messagebuffer(can: &can0::RegisterBlock, header: &MessageBufferHead
     });
 }
 
+fn read_buffer_header(can: &can0::RegisterBlock, mailbox: usize) -> MessageBufferHeader {
+    let start_adress = mailbox*4;
+
+    let register0 = can.embedded_ram[start_adress + 0].read().bits();
+    let register1 = can.embedded_ram[start_adress + 1].read().bits();
+
+    MessageBufferHeader{
+        extended_data_length: register0.get_bit(31),
+        bit_rate_switch: register0.get_bit(30),
+        error_state_indicator: register0.get_bit(29),
+        code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
+        substitute_remote_request: register0.get_bit(22),
+        id_extended: register0.get_bit(21),
+        remote_transmission_request: register0.get_bit(20),
+        data_length_code: register0.get_bits(16..20) as u8,
+        time_stamp: register0.get_bits(0..15) as u16,
+        priority: register1.get_bits(29..32) as u8,
+        id: match register0.get_bit(21) {true => register1.get_bits(0..29), false => register1.get_bits(18..29)},
+    }
+}
+
+
 #[derive(Debug)]
 pub enum TransmitError {
     MailboxBusy,

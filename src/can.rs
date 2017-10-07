@@ -13,6 +13,7 @@ pub use embedded_types::can::{
     ID,
     BaseID,
     ExtendedID,
+    CanFrame,
 };
 
 use embedded_types;
@@ -104,7 +105,7 @@ impl<'a> Can<'a> {
                
     }
 
-    pub fn transmit<T: CanFrame>(&self, message: &T, mailbox: usize) -> Result<(), TransmitError> {
+    pub fn transmit(&self, frame: &CanFrame, mailbox: usize) -> Result<(), TransmitError> {
         let start_adress = mailbox*4;
     
         let can = self.0;
@@ -130,44 +131,59 @@ impl<'a> Can<'a> {
         can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
                 
         // 3. Write the ID word.
-        match message.id() {
-            ID::ExtendedID(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(0..29, id.into())
-                        .get_bits(0..32)
-                ))};
-            },
-            ID::BaseID(id) => {
-                unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                    0u32.set_bits(18..29, u16::from(id) as u32)
-                        .get_bits(0..32)    
-                ))};
-            },
+        let extended_id = match frame.id() {
+            ID::BaseID(_) => false,
+            ID::ExtendedID(_) => true,
+        };
+
+        if extended_id {
+            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                0u32.set_bits(0..29, frame.id().into())
+                    .get_bits(0..32)
+            ))};
+        } else {
+            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+                0u32.set_bits(18..29, frame.id().into())
+                    .get_bits(0..32)    
+            ))};
         }
+
         
         // 4. Write the data bytes.
-        for index in 0..message.data().len() as usize {
-            can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
-                let mut bitmask = r.bits();
-                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, message.data()[index] as u32);
-                unsafe{ w.bits(bitmask) }
-            });
-        }   
+        let data_length = if let CanFrame::DataFrame(data_frame) = *frame {
+            for index in 0..data_frame.data().len() as usize {
+                can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
+                    let mut bitmask = r.bits();
+                    bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, data_frame.data()[index] as u32);
+                    unsafe{ w.bits(bitmask) }
+                });
+            }
+            data_frame.data().len()
+        } else {
+            0
+        };
+
+        let remote_frame = match *frame {
+            CanFrame::DataFrame(_) => false,
+            CanFrame::RemoteFrame(_) => true,
+        };
 
         
         // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
         // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
         can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
-            0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
-                .set_bit(21, message.extended_id())
-                .set_bits(16..20, message.data().len() as u32)
+            0u32
+                .set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
+                .set_bit(21, extended_id)
+                .set_bit(20, remote_frame)
+                .set_bits(16..20, data_length as u32)
                 .get_bits(0..32)
         )});
         
         Ok(())
     }
 
-    pub fn receive<T: CanFrame>(&self, mailbox: usize) -> Result<T, ReceiveError> {
+    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
 
         let can = self.0;
 
@@ -211,12 +227,13 @@ impl<'a> Can<'a> {
             ID::BaseID(BaseID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(18..28) as u16))
         };
         let dlc = cs.bits().get_bits(16..20) as usize;
-        let mut data = [0u8; 8];
-        for i in 0..dlc {
-            data[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
-        }
         
-        let frame = T::with_data(id, &data[0..dlc]);
+        let mut frame = embedded_types::can::DataFrame::new(id);
+        frame.set_data_length(dlc);
+        
+        for i in 0..dlc {
+            frame.data_as_mut()[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
+        }
         
         // 4. Ack proper flag
         can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
@@ -224,17 +241,10 @@ impl<'a> Can<'a> {
         // 6. Read Free running timer to unlock mailbox
         let _time = can.timer.read();
         
-        Ok(frame)
+        Ok(frame.into())
             
     }
     
-}
-
-pub trait CanFrame {
-    fn with_data(id: ID, data: &[u8]) -> Self;
-    fn extended_id(&self) -> bool;
-    fn id(&self) -> ID;
-    fn data(&self) -> &[u8];
 }
     
 pub struct CanSettings {
@@ -584,34 +594,4 @@ pub enum ReceiveError {
     MailboxEmpty,
     MailboxConfigurationError,
     MailboxNonExisting,
-}
-
-
-
-
-
-impl CanFrame for embedded_types::can::DataFrame {
-    fn with_data(id: ID, data: &[u8]) -> Self {
-        let mut frame = Self::new(id);
-        frame.set_data_length(data.len());
-        for i in 0..data.len() {
-            frame.data_as_mut()[i] = data[i];
-        }
-        frame
-    }
-    
-    fn extended_id(&self) -> bool {
-        match self.id() {
-            ID::ExtendedID(_) => true,
-            ID::BaseID(_) => false,
-        }            
-    }
-    
-    fn id(&self) -> ID {
-        self.id()
-    }
-    
-    fn data(&self) -> &[u8] {
-        self.data()
-    }
 }

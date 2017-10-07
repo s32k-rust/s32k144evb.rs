@@ -236,32 +236,6 @@ pub trait CanFrame {
     fn id(&self) -> ID;
     fn data(&self) -> &[u8];
 }
-
-impl CanFrame for embedded_types::can::DataFrame {
-    fn with_data(id: ID, data: &[u8]) -> Self {
-        let mut frame = Self::new(id);
-        frame.set_data_length(data.len());
-        for i in 0..data.len() {
-            frame.data_as_mut()[i] = data[i];
-        }
-        frame
-    }
-    
-    fn extended_id(&self) -> bool {
-        match self.id() {
-            ID::ExtendedID(_) => true,
-            ID::BaseID(_) => false,
-        }            
-    }
-    
-    fn id(&self) -> ID {
-        self.id()
-    }
-    
-    fn data(&self) -> &[u8] {
-        self.data()
-    }
-}
     
 pub struct CanSettings {
 
@@ -590,3 +564,32 @@ pub enum ReceiveError {
     MailboxNonExisting,
 }
 
+
+
+
+
+impl CanFrame for embedded_types::can::DataFrame {
+    fn with_data(id: ID, data: &[u8]) -> Self {
+        let mut frame = Self::new(id);
+        frame.set_data_length(data.len());
+        for i in 0..data.len() {
+            frame.data_as_mut()[i] = data[i];
+        }
+        frame
+    }
+    
+    fn extended_id(&self) -> bool {
+        match self.id() {
+            ID::ExtendedID(_) => true,
+            ID::BaseID(_) => false,
+        }            
+    }
+    
+    fn id(&self) -> ID {
+        self.id()
+    }
+    
+    fn data(&self) -> &[u8] {
+        self.data()
+    }
+}

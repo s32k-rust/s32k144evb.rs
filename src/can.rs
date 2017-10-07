@@ -109,9 +109,6 @@ impl<'a> Can<'a> {
     
         let can = self.0;
 
-        // 1. Check whether the respective interrupt bit is set and clear it.
-        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
-        
         /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the
         CODE field of the Control and Status word to request an abortion of the
         transmission. Wait for the corresponding IFLAG bit to be asserted by polling the
@@ -128,7 +125,10 @@ impl<'a> Can<'a> {
         } else if MessageBufferCode::from(current_code) != MessageBufferCode::Transmit(TransmitBufferState::Inactive) && MessageBufferCode::from(current_code) != MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}) {
             return Err(TransmitError::MailboxConfigurationError);
         }
-        
+
+        // Clear the interrupt flag so it's clear that this transmission has not finished
+        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+                
         // 3. Write the ID word.
         match message.id() {
             ID::ExtendedID(id) => {

@@ -101,7 +101,8 @@ impl<'a> Can<'a> {
         let filter_frame = CanFrame::from(ExtendedDataFrame::new(ExtendedID::new(0))); // TODO: set filters better then on extended data frames
         
         for mb in 0..message_buffer_settings.len() {
-            write_mailbox(can, &message_buffer_settings[mb], &filter_frame, mb as usize);
+            inactivate_mailbox(can, mb as usize);
+            write_mailbox(can, &message_buffer_settings[mb], &filter_frame, mb as usize).unwrap();
         }
         
         leave_freeze(can);

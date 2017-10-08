@@ -420,6 +420,21 @@ pub enum CanError {
     BusyMailboxWriteAttempted,
 }
 
+/// Inactivates the mailbox as described in datasheet 50.5.7.2
+///
+/// Because the user is not able to synchronize the CODE field update with the FlexCAN
+/// internal processes, an inactivation can have the following consequences:
+///  - A frame in the bus that matches the filtering of the inactivated Rx Mailbox may be lost without notice, even if there are other Mailboxes with the same filter
+///  - A frame containing the message within the inactivated Tx Mailbox may be transmitted without setting the respective IFLAG
+fn inactivate_mailbox(can: &can0::RegisterBlock, mailbox: usize) {
+    //TODO: consider clearing interrupt
+    let start_adress = mailbox*4;
+    match MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) {
+        MessageBufferCode::Transmit(_) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Inactive)) as u32).get_bits(0..32))}),
+        MessageBufferCode::Receive(_) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false})) as u32).get_bits(0..32))}),
+    }
+}
+
 /// Write to mailbox in such order that if Code is transfer active, a transfer will be initiated
 ///
 /// This function will fail if the buffer is currently full, empty, waiting to transmit data, or contains a remote frame response.

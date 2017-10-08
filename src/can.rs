@@ -413,11 +413,6 @@ pub struct MailboxHeader {
     /// itself, as part of the message buffer matching and arbitration process.
     pub code: MessageBufferCode,
 
-    /// This bit affects the behavior of remote frames and is part of the reception filter. See Table
-    /// 50-10, Table 50-11, (in datasheet) and the description of the RRS bit in Control 2 Register
-    /// (CAN_CTRL2) for additional details.
-    pub remote_transmission_request: bool,
-
     /// This 16-bit field is a copy of the Free-Running Timer, captured for Tx and Rx frames at
     /// the time when the beginning of the Identifier field appears on the CAN bus
     pub time_stamp: u16,
@@ -434,7 +429,6 @@ impl MailboxHeader {
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Transmit(TransmitBufferState::Inactive),
-            remote_transmission_request: false,
             time_stamp: 0,
             priority: 0,
         }
@@ -445,7 +439,6 @@ impl MailboxHeader {
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
-            remote_transmission_request: false,
             time_stamp: 0,
             priority: 0,
         }
@@ -503,7 +496,7 @@ fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailb
                                                                 .set_bits(24..28, u8::from(header.code.clone()) as u32)
                                                                 .set_bit(22, true) // SRR needs to be 1 to adher to can specs
                                                                 .set_bit(21, true) // always accept extended frame untill filter settings is implemented
-                                                                .set_bit(20, header.remote_transmission_request)
+                                                                .set_bit(20, true) // always accept remote frame untill filter settings is implemented
                                                                 .set_bits(0..15, header.time_stamp as u32)
                                                                 .get_bits(0..32))
     });
@@ -525,7 +518,6 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
         bit_rate_switch: register0.get_bit(30),
         error_state_indicator: register0.get_bit(29),
         code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
-        remote_transmission_request: register0.get_bit(20),
         time_stamp: register0.get_bits(0..15) as u16,
         priority: register1.get_bits(29..32) as u8,
     }

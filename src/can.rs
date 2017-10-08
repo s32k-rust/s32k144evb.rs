@@ -18,6 +18,10 @@ pub use embedded_types::can::{
 
 use embedded_types;
 
+use embedded_types::can::{
+    ExtendedDataFrame,
+};
+
 pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
 
 impl<'a> Can<'a> {
@@ -92,9 +96,11 @@ impl<'a> Can<'a> {
         • If Rx FIFO was enabled, the ID filter table must be initialized
         • Other entries in each Message Buffer should be initialized as required
          */
+
+        let filter_frame = CanFrame::from(ExtendedDataFrame::new(ExtendedID::new(0))); // TODO: set filters better then on extended data frames
         
         for mb in 0..message_buffer_settings.len() {
-            write_mailbox_header(can, &message_buffer_settings[mb], mb as usize);
+            write_mailbox(can, &message_buffer_settings[mb], &filter_frame, mb as usize);
         }
         
         leave_freeze(can);
@@ -106,81 +112,13 @@ impl<'a> Can<'a> {
     }
 
     pub fn transmit(&self, frame: &CanFrame, mailbox: usize) -> Result<(), TransmitError> {
-        let start_adress = mailbox*4;
-    
-        let can = self.0;
-
-        /* 2. If the MB is active (transmission pending), write the ABORT code (0b1001) to the
-        CODE field of the Control and Status word to request an abortion of the
-        transmission. Wait for the corresponding IFLAG bit to be asserted by polling the
-        CAN_IFLAG register or by the interrupt request if enabled by the respective IMASK
-        bit. Then read back the CODE field to check if the transmission was aborted or
-        transmitted (see Transmission abort mechanism). If backwards compatibility is
-        desired (CAN_MCR[AEN] bit is negated), just write the INACTIVE code (0b1000)
-        to the CODE field to inactivate the MB but then the pending frame may be
-        transmitted without notification (see Mailbox inactivation). */
-        let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
-
-        if MessageBufferCode::from(current_code) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
-            return Err(TransmitError::MailboxBusy);
-        } else if MessageBufferCode::from(current_code) != MessageBufferCode::Transmit(TransmitBufferState::Inactive) && MessageBufferCode::from(current_code) != MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}) {
-            return Err(TransmitError::MailboxConfigurationError);
-        }
-
-        // Clear the interrupt flag so it's clear that this transmission has not finished
-        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
-                
-        // 3. Write the ID word.
-        let extended_id = match frame.id() {
-            ID::BaseID(_) => false,
-            ID::ExtendedID(_) => true,
-        };
-
-        if extended_id {
-            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                0u32.set_bits(0..29, frame.id().into())
-                    .get_bits(0..32)
-            ))};
-        } else {
-            unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
-                0u32.set_bits(18..29, frame.id().into())
-                    .get_bits(0..32)    
-            ))};
-        }
-
-        
-        // 4. Write the data bytes.
-        let data_length = if let CanFrame::DataFrame(data_frame) = *frame {
-            for index in 0..data_frame.data().len() as usize {
-                can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
-                    let mut bitmask = r.bits();
-                    bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, data_frame.data()[index] as u32);
-                    unsafe{ w.bits(bitmask) }
-                });
-            }
-            data_frame.data().len()
-        } else {
-            0
-        };
-
-        let remote_frame = match *frame {
-            CanFrame::DataFrame(_) => false,
-            CanFrame::RemoteFrame(_) => true,
-        };
-
-        
-        // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate
-        // the MB. When CAN_MCR[FDEN] is set, write also the EDL, BRS and ESI bits.
-        can.embedded_ram[start_adress].write(|w| unsafe {w.bits(
-            0u32
-                .set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) as u32)
-                .set_bit(21, extended_id)
-                .set_bit(20, remote_frame)
-                .set_bits(16..20, data_length as u32)
-                .get_bits(0..32)
-        )});
-        
-        Ok(())
+        let mut header = MailboxHeader::default_transmit();
+        header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
+        match write_mailbox(self.0, &header, frame, mailbox) {
+            Ok(()) => Ok(()),
+            Err(CanError::BusyMailboxWriteAttempted) => Err(TransmitError::MailboxBusy),
+            Err(_) => Err(TransmitError::MailboxConfigurationError),
+        }        
     }
 
     pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
@@ -484,29 +422,92 @@ pub enum CanError {
     FreezeModeError,
     SettingsError,
     ConfigurationFailed,
+    BusyMailboxWriteAttempted,
 }
 
-
-fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailbox: usize) {
+/// Write to mailbox in such order that if Code is transfer active, a transfer will be initiated
+///
+/// This function will fail if the buffer is currently full, empty, waiting to transmit data, or contains a remote frame response.
+/// If this is the case, a abort will need to occur first.
+///
+/// If a write is succseeded the interrupt flag will also be cleared. This is so the IRQ doesn't try to access outdated data.
+fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanFrame, mailbox: usize) -> Result<(), CanError> {
     let start_adress = mailbox*4;
 
+    // Check if the mailbox is ready for a write
+    let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
+
+    match MessageBufferCode::from(current_code) {
+        MessageBufferCode::Transmit(TransmitBufferState::DataRemote) => return Err(CanError::BusyMailboxWriteAttempted),
+        MessageBufferCode::Transmit(TransmitBufferState::Tanswer) => return Err(CanError::BusyMailboxWriteAttempted),
+        MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: _}) => return Err(CanError::BusyMailboxWriteAttempted),
+        MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: _}) => return Err(CanError::BusyMailboxWriteAttempted),
+        MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: _}) => return Err(CanError::BusyMailboxWriteAttempted),
+        MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: _}) => return Err(CanError::BusyMailboxWriteAttempted),
+        _ => (),
+    }
+
+    // Clear the interrupt flag so it's clear that this transmission have not finished
+    can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+    
+    // 3. Write the ID word and priority
+    let extended_id = match frame.id() {
+        ID::BaseID(_) => false,
+        ID::ExtendedID(_) => true,
+    };
+
+    if extended_id {
+        unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+            0u32
+                .set_bits(0..29, frame.id().into())
+                .set_bits(29..32, header.priority as u32)
+                .get_bits(0..32))
+        )};
+    } else {
+        unsafe {can.embedded_ram[start_adress+1].modify(|_, w| w.bits(
+            0u32
+                .set_bits(18..29, frame.id().into())
+                .set_bits(29..32, header.priority as u32)
+                .get_bits(0..32))
+        )};
+    }
+
+    
+    // 4. Write the data bytes.
+    let data_length = if let CanFrame::DataFrame(data_frame) = *frame {
+        for index in 0..data_frame.data().len() as usize {
+            can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
+                let mut bitmask = r.bits();
+                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, data_frame.data()[index] as u32);
+                unsafe{ w.bits(bitmask) }
+            });
+        }
+        data_frame.data().len()
+    } else {
+        0
+    };
+
+    let remote_frame = match *frame {
+        CanFrame::DataFrame(_) => false,
+        CanFrame::RemoteFrame(_) => true,
+    };
+
+    // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate the MB
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32
                                                                 .set_bit(30, header.bit_rate_switch)
                                                                 .set_bit(29, header.error_state_indicator)
                                                                 .set_bits(24..28, u8::from(header.code.clone()) as u32)
-                                                                .set_bit(22, true) // SRR needs to be 1 to adher to can specs
-                                                                .set_bit(21, true) // always accept extended frame untill filter settings is implemented
-                                                                .set_bit(20, true) // always accept remote frame untill filter settings is implemented
+                                                                .set_bit(22, true) // SRR needs to be 1 to adhere to can specs
+                                                                .set_bit(21, extended_id)
+                                                                .set_bit(20, remote_frame)
+                                                                .set_bits(16..20, data_length as u32)
                                                                 .set_bits(0..15, header.time_stamp as u32)
                                                                 .get_bits(0..32))
     });
-                                                        
-    can.embedded_ram[start_adress + 1].write(|w| {
-        let mut bm = 0u32;
-        bm.set_bits(29..32, header.priority as u32);
-        unsafe{w.bits(bm)}
-    });
+    
+    Ok(())
 }
+
 
 fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHeader {
     let start_adress = mailbox*4;

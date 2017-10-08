@@ -80,7 +80,7 @@ fn main() {
             }
             for i in 0..loop_max {
                 if i == 0 {
-                    can.transmit(&message.into(), 0).unwrap();           
+                    can.transmit(&message.into()).unwrap();           
                 }
             }
         }

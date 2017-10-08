@@ -22,6 +22,10 @@ use embedded_types::can::{
     ExtendedDataFrame,
 };
 
+use embedded_types::io::{
+    TransmitError,
+};
+
 pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
 
 impl<'a> Can<'a> {
@@ -113,14 +117,21 @@ impl<'a> Can<'a> {
                
     }
 
-    pub fn transmit(&self, frame: &CanFrame, mailbox: usize) -> Result<(), TransmitError> {
+    pub fn transmit(&self, frame: &CanFrame) -> Result<(), TransmitError> {
         let mut header = MailboxHeader::default_transmit();
         header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
-        match write_mailbox(self.0, &header, frame, mailbox) {
-            Ok(()) => Ok(()),
-            Err(CanError::BusyMailboxWriteAttempted) => Err(TransmitError::MailboxBusy),
-            Err(_) => Err(TransmitError::MailboxConfigurationError),
-        }        
+
+        let active_mailboxes = self.0.mcr.read().maxmb().bits() as usize + 1;
+
+        for i in 0..active_mailboxes {
+            if read_mailbox_code(self.0, i) == MessageBufferCode::Transmit(TransmitBufferState::Inactive) {
+                match write_mailbox(self.0, &header, frame, i) {
+                    Ok(()) => return Ok(()),
+                    Err(_) => (),
+                }
+            }
+        }
+        Err(TransmitError::BufferFull)
     }
 
     pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
@@ -422,6 +433,11 @@ pub enum CanError {
     BusyMailboxWriteAttempted,
 }
 
+fn read_mailbox_code(can: &can0::RegisterBlock, mailbox: usize) -> MessageBufferCode {
+    let start_adress = mailbox*4;
+    MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8)
+}
+
 fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{
     // TODO: this function is untested, test it (it requires mcr.aen() bit set as well)
     let start_adress = mailbox*4;
@@ -548,15 +564,6 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
         priority: register1.get_bits(29..32) as u8,
     }
 }
-
-
-#[derive(Debug)]
-pub enum TransmitError {
-    MailboxBusy,
-    MailboxConfigurationError,
-    MailboxNonExisting,
-}
-
 
 #[derive(Debug)]
 pub enum ReceiveError {

@@ -413,12 +413,6 @@ pub struct MailboxHeader {
     /// itself, as part of the message buffer matching and arbitration process.
     pub code: MessageBufferCode,
 
-    /// Fixed recessive bit, used only in extended format. It must be set to one by the user for
-    /// transmission (Tx Buffers) and will be stored with the value received on the CAN bus for
-    /// Rx receiving buffers. It can be received as either recessive or dominant. If FlexCAN
-    /// receives this bit as dominant, then it is interpreted as an arbitration loss.
-    pub substitute_remote_request: bool,
-
     /// This bit affects the behavior of remote frames and is part of the reception filter. See Table
     /// 50-10, Table 50-11, (in datasheet) and the description of the RRS bit in Control 2 Register
     /// (CAN_CTRL2) for additional details.
@@ -440,7 +434,6 @@ impl MailboxHeader {
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Transmit(TransmitBufferState::Inactive),
-            substitute_remote_request: false,
             remote_transmission_request: false,
             time_stamp: 0,
             priority: 0,
@@ -452,7 +445,6 @@ impl MailboxHeader {
             bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
-            substitute_remote_request: false,
             remote_transmission_request: false,
             time_stamp: 0,
             priority: 0,
@@ -509,7 +501,7 @@ fn write_mailbox_header(can: &can0::RegisterBlock, header: &MailboxHeader, mailb
                                                                 .set_bit(30, header.bit_rate_switch)
                                                                 .set_bit(29, header.error_state_indicator)
                                                                 .set_bits(24..28, u8::from(header.code.clone()) as u32)
-                                                                .set_bit(22, header.substitute_remote_request)
+                                                                .set_bit(22, true) // SRR needs to be 1 to adher to can specs
                                                                 .set_bit(21, true) // always accept extended frame untill filter settings is implemented
                                                                 .set_bit(20, header.remote_transmission_request)
                                                                 .set_bits(0..15, header.time_stamp as u32)
@@ -533,7 +525,6 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
         bit_rate_switch: register0.get_bit(30),
         error_state_indicator: register0.get_bit(29),
         code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
-        substitute_remote_request: register0.get_bit(22),
         remote_transmission_request: register0.get_bit(20),
         time_stamp: register0.get_bits(0..15) as u16,
         priority: register1.get_bits(29..32) as u8,

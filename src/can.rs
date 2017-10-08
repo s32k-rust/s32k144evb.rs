@@ -341,9 +341,6 @@ impl From<u8> for MessageBufferCode {
 
 
 pub struct MailboxHeader {
-    /// This bit defines whether the bit rate is switched inside a CAN FD format frame
-    pub bit_rate_switch: bool,
-
     /// This bit indicates if the transmitting node is error active or error passive.
     pub error_state_indicator: bool,
 
@@ -364,7 +361,6 @@ pub struct MailboxHeader {
 impl MailboxHeader {
     pub fn default_transmit() -> Self {
         MailboxHeader{
-            bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Transmit(TransmitBufferState::Inactive),
             time_stamp: 0,
@@ -374,7 +370,6 @@ impl MailboxHeader {
 
     pub fn default_receive() -> Self {
         MailboxHeader{
-            bit_rate_switch: false,
             error_state_indicator: false,
             code: MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
             time_stamp: 0,
@@ -494,7 +489,7 @@ fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanF
 
     // 5. Write the DLC, Control, and CODE fields of the Control and Status word to activate the MB
     can.embedded_ram[start_adress + 0].write(|w| unsafe{ w.bits(0u32
-                                                                .set_bit(30, header.bit_rate_switch)
+                                                                .set_bit(31, false) // not CAN-FD frame
                                                                 .set_bit(29, header.error_state_indicator)
                                                                 .set_bits(24..28, u8::from(header.code.clone()) as u32)
                                                                 .set_bit(22, true) // SRR needs to be 1 to adhere to can specs
@@ -516,7 +511,6 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
     let register1 = can.embedded_ram[start_adress + 1].read().bits();
 
     MailboxHeader{
-        bit_rate_switch: register0.get_bit(30),
         error_state_indicator: register0.get_bit(29),
         code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
         time_stamp: register0.get_bits(0..15) as u16,

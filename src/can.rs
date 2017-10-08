@@ -72,6 +72,7 @@ impl<'a> Can<'a> {
                                 .rfen().bit(false)
                                 .srxdis().bit(!settings.self_reception)
                                 .irmq().bit(settings.individual_masking)
+                                .aen().bit(true)
                                 .dma().bit(false);
                                 unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
                                 w
@@ -418,6 +419,20 @@ pub enum CanError {
     SettingsError,
     ConfigurationFailed,
     BusyMailboxWriteAttempted,
+}
+
+fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{
+    // TODO: this function is untested, test it (it requires mcr.aen() bit set as well)
+    let start_adress = mailbox*4;
+    if MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
+        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+        can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Abort)) as u32).get_bits(0..32))});
+        while can.iflag1.read().bits() & (1<<mailbox) != 0 {}
+        // TODO: Extend so it return aborted can frame as an optional value
+        None
+    } else {
+        None
+    }
 }
 
 /// Inactivates the mailbox as described in datasheet 50.5.7.2

@@ -435,7 +435,10 @@ pub enum CanError {
 
 fn read_mailbox_code(can: &can0::RegisterBlock, mailbox: usize) -> MessageBufferCode {
     let start_adress = mailbox*4;
-    MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8)
+    let code = MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8);
+    // The read might have caused a lock, need to read the timer to unlock all mailboxes just in case.
+    let _time = can.timer.read(); 
+    code
 }
 
 fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{

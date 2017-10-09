@@ -133,69 +133,18 @@ impl<'a> Can<'a> {
         }
         Err(TransmitError::BufferFull)
     }
-
-    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
-
-        let can = self.0;
-
     
-        // TODO: Check that mailbox is within valid range and return error if not
-        
+    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
         // Check if a new message has arrived
-        let new_message = can.iflag1.read().bits().get_bit(mailbox as u8);
+        let new_message = self.0.iflag1.read().bits().get_bit(mailbox as u8);
         
         if !new_message {
             return Err(ReceiveError::MailboxEmpty);
         }
-        
-        // 1. Read control and Status word
-        let mut cs = can.embedded_ram[mailbox*4].read();
 
-        // check if we're reading from a receive buffer
-        if let MessageBufferCode::Receive(_) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
-        } else {
-            return Err(ReceiveError::MailboxConfigurationError);
-        }
-        
-        // 2. busy wait untill mail box no longer busy
-        loop {
-            if let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.bits().get_bits(24..28) as u8) {
-                if code.busy {
-                    cs = can.embedded_ram[mailbox*4].read();
-                } else {
-                    break
-                }
-            } else {
-                return Err(ReceiveError::MailboxConfigurationError);
-            }
-        }
-        
-        // 3. Read contents of the mailbox
-        let extended_id = cs.bits().get_bit(21);
-        let id = if extended_id {
-            ID::ExtendedID(ExtendedID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(0..28)))
-        } else {
-            ID::BaseID(BaseID::new(can.embedded_ram[mailbox*4 + 1].read().bits().get_bits(18..28) as u16))
-        };
-        let dlc = cs.bits().get_bits(16..20) as usize;
-        
-        let mut frame = embedded_types::can::DataFrame::new(id);
-        frame.set_data_length(dlc);
-        
-        for i in 0..dlc {
-            frame.data_as_mut()[i] = can.embedded_ram[mailbox*4 + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
-        }
-        
-        // 4. Ack proper flag
-        can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
-
-        // 6. Read Free running timer to unlock mailbox
-        let _time = can.timer.read();
-        
-        Ok(frame.into())
-            
-    }
-    
+        let (header, frame) = read_mailbox(self.0, mailbox);
+        Ok(frame)
+    }    
 }
     
 pub struct CanSettings {
@@ -567,6 +516,67 @@ fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHead
         priority: register1.get_bits(29..32) as u8,
     }
 }
+
+
+pub fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, CanFrame) {
+    let start_adress = mailbox*4;
+
+    // TODO: Check that mailbox is within valid range and return error (panic?) if not
+    
+    // 1. Read control and Status word
+    let mut cs = can.embedded_ram[start_adress].read().bits();
+    
+    // 2. read untill mail box no longer busy
+    while let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.get_bits(24..28) as u8) {
+        if code.busy {
+            cs = can.embedded_ram[start_adress].read().bits();
+        } else {
+            break
+        }
+    }
+        
+    // 3. Read contents of the mailbox
+    let extended_id = cs.get_bit(21);
+    let id = if extended_id {
+        ID::ExtendedID(ExtendedID::new(can.embedded_ram[start_adress + 1].read().bits().get_bits(0..28)))
+    } else {
+        ID::BaseID(BaseID::new(can.embedded_ram[start_adress + 1].read().bits().get_bits(18..28) as u16))
+    };
+    let dlc = cs.get_bits(16..20) as usize;
+
+    let remote_frame = cs.get_bit(20);
+    
+    let mut frame = if remote_frame {
+        let mut frame = embedded_types::can::RemoteFrame::new(id);
+        CanFrame::from(frame)
+    } else {
+        let mut frame = embedded_types::can::DataFrame::new(id);
+        frame.set_data_length(dlc);
+        for i in 0..dlc {
+            frame.data_as_mut()[i] = can.embedded_ram[start_adress + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
+        }
+        CanFrame::from(frame)
+    };
+        
+
+    let priority = can.embedded_ram[start_adress+1].read().bits().get_bits(29..32);
+
+    let header = MailboxHeader{
+        error_state_indicator: cs.get_bit(29),
+        code: MessageBufferCode::from(cs.get_bits(24..28) as u8),
+        time_stamp: cs.get_bits(0..15) as u16,
+        priority: priority as u8,
+    };
+   
+    // 4. Ack proper flag
+    can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
+
+    // 6. Read Free running timer to unlock mailbox
+    let _time = can.timer.read();
+        
+    (header, frame.into())        
+}
+
 
 #[derive(Debug)]
 pub enum ReceiveError {

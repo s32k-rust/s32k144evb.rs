@@ -500,7 +500,7 @@ fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanF
 }
 
 
-pub fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, CanFrame) {
+fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, CanFrame) {
     let start_adress = mailbox*4;
 
     // TODO: Check that mailbox is within valid range and return error (panic?) if not

@@ -503,21 +503,6 @@ fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanF
 }
 
 
-fn read_mailbox_header(can: &can0::RegisterBlock, mailbox: usize) -> MailboxHeader {
-    let start_adress = mailbox*4;
-
-    let register0 = can.embedded_ram[start_adress + 0].read().bits();
-    let register1 = can.embedded_ram[start_adress + 1].read().bits();
-
-    MailboxHeader{
-        error_state_indicator: register0.get_bit(29),
-        code: MessageBufferCode::from(register0.get_bits(24..28) as u8),
-        time_stamp: register0.get_bits(0..15) as u16,
-        priority: register1.get_bits(29..32) as u8,
-    }
-}
-
-
 pub fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, CanFrame) {
     let start_adress = mailbox*4;
 

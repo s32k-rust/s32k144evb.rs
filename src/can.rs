@@ -1,13 +1,7 @@
-use cortex_m;
-
 use bit_field::BitField;
 
 use s32k144;
 use s32k144::can0;
-
-use s32k144::{
-    CAN0,
-};
 
 pub use embedded_types::can::{
     ID,
@@ -146,7 +140,7 @@ impl<'a> Can<'a> {
             return Err(IOError::BufferExhausted);
         }
 
-        let (header, frame) = read_mailbox(self.0, mailbox);
+        let (_header, frame) = read_mailbox(self.0, mailbox);
         Ok(frame)
     }    
 }
@@ -535,9 +529,8 @@ pub fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader
 
     let remote_frame = cs.get_bit(20);
     
-    let mut frame = if remote_frame {
-        let mut frame = embedded_types::can::RemoteFrame::new(id);
-        CanFrame::from(frame)
+    let frame = if remote_frame {
+        CanFrame::from(embedded_types::can::RemoteFrame::new(id))
     } else {
         let mut frame = embedded_types::can::DataFrame::new(id);
         frame.set_data_length(dlc);

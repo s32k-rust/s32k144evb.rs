@@ -41,8 +41,6 @@ fn main() {
     can_settings.source_frequency = 8000000;
     can_settings.self_reception = false;
 
-    let can_mb_settings = [MailboxHeader::default_transmit(), MailboxHeader::default_receive()];
-
     // Enable and configure the system oscillator
     let scg = peripherals.SCG;
     let porte = peripherals.PORTE;
@@ -67,7 +65,7 @@ fn main() {
     
     pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
-    let can = can::Can::init(peripherals.CAN0, &can_settings, &can_mb_settings).unwrap();
+    let can = can::Can::init(peripherals.CAN0, &can_settings).unwrap();
 
     loop {
 

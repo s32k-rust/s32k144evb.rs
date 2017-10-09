@@ -22,9 +22,7 @@ use embedded_types::can::{
     ExtendedDataFrame,
 };
 
-use embedded_types::io::{
-    TransmitError,
-};
+use embedded_types::io::Error as IOError;
 
 const TX_MAILBOXES: usize = 8;
 const RX_MAILBOXES: usize = 8;
@@ -125,7 +123,7 @@ impl<'a> Can<'a> {
                
     }
 
-    pub fn transmit(&self, frame: &CanFrame) -> Result<(), TransmitError> {
+    pub fn transmit(&self, frame: &CanFrame) -> Result<(), IOError> {
         let mut header = MailboxHeader::default_transmit();
         header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
 
@@ -137,15 +135,15 @@ impl<'a> Can<'a> {
                 }
             }
         }
-        Err(TransmitError::BufferFull)
+        Err(IOError::BufferExhausted)
     }
     
-    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, ReceiveError> {
+    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, IOError> {
         // Check if a new message has arrived
         let new_message = self.0.iflag1.read().bits().get_bit(mailbox as u8);
         
         if !new_message {
-            return Err(ReceiveError::MailboxEmpty);
+            return Err(IOError::BufferExhausted);
         }
 
         let (header, frame) = read_mailbox(self.0, mailbox);
@@ -566,12 +564,4 @@ pub fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader
     let _time = can.timer.read();
         
     (header, frame.into())        
-}
-
-
-#[derive(Debug)]
-pub enum ReceiveError {
-    MailboxEmpty,
-    MailboxConfigurationError,
-    MailboxNonExisting,
 }

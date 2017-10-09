@@ -1,5 +1,5 @@
 use s32k144::lpuart0;
-use embedded_types::io::TransmitError;
+use embedded_types::io::Error as IOError;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UartError {
@@ -85,9 +85,9 @@ pub fn configure(lpuart: &lpuart0::RegisterBlock, settings: UartSettings, source
     Ok(())
 }
 
-pub fn transmit(lpuart: &lpuart0::RegisterBlock, data: u8) -> Result<(), TransmitError>{
+pub fn transmit(lpuart: &lpuart0::RegisterBlock, data: u8) -> Result<(), IOError>{
     if lpuart.stat.read().tdre().is_0() {
-        Err(TransmitError::BufferFull)
+        Err(IOError::BufferExhausted)
     } else {
         lpuart.data.write(|w| unsafe{w.bits(data as u32)});
         Ok(())

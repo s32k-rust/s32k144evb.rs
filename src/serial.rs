@@ -11,7 +11,7 @@ use s32k144::PORTC;
 use s32k144::SCG;
 use s32k144::lpuart0;
 
-use embedded_types::io::blocking_transmit;
+use embedded_types::io::blocking;
 
 use lpuart;
 
@@ -20,7 +20,7 @@ struct Port<'p>(&'p lpuart0::RegisterBlock);
 impl<'p> fmt::Write for Port<'p> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.as_bytes() {
-            blocking_transmit(|| lpuart::transmit(self.0, *c)).unwrap();
+            blocking(|| lpuart::transmit(self.0, *c)).unwrap();
         }
         Ok(())
     }

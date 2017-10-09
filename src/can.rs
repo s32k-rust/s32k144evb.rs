@@ -132,16 +132,15 @@ impl<'a> Can<'a> {
         Err(IOError::BufferExhausted)
     }
     
-    pub fn receive(&self, mailbox: usize) -> Result<CanFrame, IOError> {
-        // Check if a new message has arrived
-        let new_message = self.0.iflag1.read().bits().get_bit(mailbox as u8);
-        
-        if !new_message {
-            return Err(IOError::BufferExhausted);
-        }
-
-        let (_header, frame) = read_mailbox(self.0, mailbox);
-        Ok(frame)
+    pub fn receive(&self) -> Result<CanFrame, IOError> {
+        for i in TX_MAILBOXES..(TX_MAILBOXES+RX_MAILBOXES) {
+            let new_message = self.0.iflag1.read().bits().get_bit(i as u8);
+            if new_message {
+                let (_header, frame) = read_mailbox(self.0, i);
+                return Ok(frame);
+            }
+        }           
+        Err(IOError::BufferExhausted)
     }    
 }
     

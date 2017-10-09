@@ -26,10 +26,13 @@ use embedded_types::io::{
     TransmitError,
 };
 
+const TX_MAILBOXES: usize = 8;
+const RX_MAILBOXES: usize = 8;
+
 pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
 
 impl<'a> Can<'a> {
-    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings, message_buffer_settings: &[MailboxHeader]) -> Result<Self, CanError> {
+    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings) -> Result<Self, CanError> {
         
         if settings.source_frequency % settings.can_frequency != 0 {
             return Err(CanError::SettingsError);
@@ -78,7 +81,7 @@ impl<'a> Can<'a> {
                                 .irmq().bit(settings.individual_masking)
                                 .aen().bit(true)
                                 .dma().bit(false);
-                                unsafe { w.maxmb().bits(message_buffer_settings.len() as u8-1) };
+                                unsafe { w.maxmb().bits((RX_MAILBOXES+TX_MAILBOXES) as u8-1) };
                                 w
         });
             
@@ -104,9 +107,14 @@ impl<'a> Can<'a> {
 
         let filter_frame = CanFrame::from(ExtendedDataFrame::new(ExtendedID::new(0))); // TODO: set filters better then on extended data frames
         
-        for mb in 0..message_buffer_settings.len() {
+        for mb in 0..TX_MAILBOXES {
             inactivate_mailbox(can, mb as usize);
-            write_mailbox(can, &message_buffer_settings[mb], &filter_frame, mb as usize).unwrap();
+            write_mailbox(can, &MailboxHeader::default_transmit(), &filter_frame, mb as usize).unwrap();
+        }
+        
+        for mb in TX_MAILBOXES..(TX_MAILBOXES+RX_MAILBOXES) {
+            inactivate_mailbox(can, mb as usize);
+            write_mailbox(can, &MailboxHeader::default_receive(), &filter_frame, mb as usize).unwrap();
         }
         
         leave_freeze(can);
@@ -121,9 +129,7 @@ impl<'a> Can<'a> {
         let mut header = MailboxHeader::default_transmit();
         header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
 
-        let active_mailboxes = self.0.mcr.read().maxmb().bits() as usize + 1;
-
-        for i in 0..active_mailboxes {
+        for i in 0..TX_MAILBOXES {
             if read_mailbox_code(self.0, i) == MessageBufferCode::Transmit(TransmitBufferState::Inactive) {
                 match write_mailbox(self.0, &header, frame, i) {
                     Ok(()) => return Ok(()),

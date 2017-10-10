@@ -5,14 +5,14 @@ use s32k144::can0;
 
 pub use embedded_types::can::{
     ID,
-    BaseID,
-    ExtendedID,
     CanFrame,
 };
 
 use embedded_types;
 
 use embedded_types::can::{
+    ExtendedID,
+    BaseID,
     ExtendedDataFrame,
 };
 
@@ -211,20 +211,20 @@ impl From<ClockSource> for bool {
     
  
 #[derive(Clone, PartialEq)]
-pub enum MessageBufferCode {
+enum MessageBufferCode {
     Receive(ReceiveBufferCode),
     Transmit(TransmitBufferState),
 }
 
 #[derive(Clone, PartialEq)]
-pub struct ReceiveBufferCode {
+struct ReceiveBufferCode {
     pub state: ReceiveBufferState,
     /// FlexCAN is updating the contents of the MB, the CPU must not access the MB
     pub busy: bool,
 }
 
 #[derive(Clone, PartialEq)]
-pub enum ReceiveBufferState {
+enum ReceiveBufferState {
     /// MB is not active
     Inactive,
 
@@ -242,7 +242,7 @@ pub enum ReceiveBufferState {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum TransmitBufferState {
+enum TransmitBufferState {
     /// MB is not active
     Inactive,
 
@@ -299,7 +299,7 @@ impl From<u8> for MessageBufferCode {
 }
 
 
-pub struct MailboxHeader {
+struct MailboxHeader {
     /// This bit indicates if the transmitting node is error active or error passive.
     pub error_state_indicator: bool,
 

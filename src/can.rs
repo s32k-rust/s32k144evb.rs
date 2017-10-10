@@ -117,7 +117,9 @@ impl<'a> Can<'a> {
                
     }
 
-    pub fn transmit(&self, frame: &CanFrame) -> Result<(), IOError> {
+    /// Does not attempt to swap frames if all mailboxes are full, not suitable for frames
+    /// that need to live up to some timing requirements, as priority inversion might be unavoidable.
+    pub fn transmit_quick(&self, frame: &CanFrame) -> Result<(), IOError> {
         let mut header = MailboxHeader::default_transmit();
         header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
 
@@ -132,10 +134,8 @@ impl<'a> Can<'a> {
         Err(IOError::BufferExhausted)
     }
 
-    /// First tries to do a regular transmit.
-    /// If this transmit fails, it will swap it out with the frame with lowest priority.
-    /// If a frame is succesfully swapped out, the swapped frame will be returned.
-    pub fn transmit_with_priority(&self, frame: &CanFrame) -> Result<Option<CanFrame>, IOError> {
+    /// If there are no free Mailboxes, the frame with lowest priority will be aborted and returned upon success
+    pub fn transmit(&self, frame: &CanFrame) -> Result<Option<CanFrame>, IOError> {
         let mut highest_id = 0;
         let mut mailbox_number = usize::max_value();
         

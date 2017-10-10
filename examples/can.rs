@@ -20,12 +20,13 @@ use s32k144evb::{
 
 use s32k144evb::can::{
     ID,
-    BaseID,
     CanSettings,
-    MailboxHeader,
 };
 
-use embedded_types::can::DataFrame;
+use embedded_types::can::{
+    DataFrame,
+    BaseID,
+};
 
 fn main() {
     

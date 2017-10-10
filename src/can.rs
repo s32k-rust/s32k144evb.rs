@@ -131,6 +131,42 @@ impl<'a> Can<'a> {
         }
         Err(IOError::BufferExhausted)
     }
+
+    /// First tries to do a regular transmit.
+    /// If this transmit fails, it will swap it out with the frame with lowest priority.
+    /// If a frame is succesfully swapped out, the swapped frame will be returned.
+    pub fn transmit_with_priority(&self, frame: &CanFrame) -> Result<Option<CanFrame>, IOError> {
+        let mut highest_id = 0;
+        let mut mailbox_number = usize::max_value();
+        
+        let mut transmit_header = MailboxHeader::default_transmit();
+        transmit_header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
+        
+        for i in 0..TX_MAILBOXES {
+            let (header, old_frame) = read_mailbox(self.0, i);
+            match header.code {
+                MessageBufferCode::Transmit(TransmitBufferState::Inactive) => {
+                    write_mailbox(self.0, &transmit_header, frame, i).unwrap();
+                    return Ok(None);
+                },
+                MessageBufferCode::Transmit(TransmitBufferState::DataRemote) => {
+                    if u32::from(old_frame.id()) > highest_id {
+                        highest_id = u32::from(frame.id());
+                        mailbox_number = i;
+                    }
+                },
+                _ => unreachable!(),
+            }
+        }
+
+        if highest_id > u32::from(frame.id()) {
+            let aborted_frame = abort_mailbox(self.0, mailbox_number);
+            write_mailbox(self.0, &transmit_header, frame, mailbox_number).unwrap();
+            Ok(aborted_frame)
+        } else {
+            Err(IOError::BufferExhausted)
+        }        
+    }
     
     pub fn receive(&self) -> Result<CanFrame, IOError> {
         for i in TX_MAILBOXES..(TX_MAILBOXES+RX_MAILBOXES) {
@@ -394,8 +430,13 @@ fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{
         can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
         can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Abort)) as u32).get_bits(0..32))});
         while can.iflag1.read().bits() & (1<<mailbox) != 0 {}
-        // TODO: Extend so it return aborted can frame as an optional value
-        None
+        let (header, frame) = read_mailbox(can, mailbox);
+
+        match header.code {
+            MessageBufferCode::Transmit(TransmitBufferState::Abort) => Some(frame),
+            MessageBufferCode::Transmit(TransmitBufferState::Inactive) => None,
+            _ => unreachable!(),
+        }
     } else {
         None
     }

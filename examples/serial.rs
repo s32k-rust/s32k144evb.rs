@@ -27,14 +27,3 @@ fn main() {
         i += 1;
     }
 }
-
-
-// As we are not using interrupts, we just register a dummy catch all handler
-#[allow(dead_code)]
-#[used]
-#[link_section = ".vector_table.interrupts"]
-static INTERRUPTS: [extern "C" fn(); 240] = [default_handler; 240];
-
-extern "C" fn default_handler() {
-    cortex_m::asm::bkpt();
-}

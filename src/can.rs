@@ -108,6 +108,9 @@ impl<'a> Can<'a> {
             inactivate_mailbox(can, mb as usize);
             write_mailbox(can, &MailboxHeader::default_receive(), &filter_frame, mb as usize).unwrap();
         }
+
+        // clear all interrupt flags so data wont dangle
+        can.iflag1.write(|w| unsafe{w.bits(0xffff_ffff)});
         
         leave_freeze(can);
         

@@ -9,13 +9,10 @@ extern crate embedded_types;
 
 use cortex_m::asm;
 
-use s32k144::{
-    SCG,
-};
-
 use s32k144evb::{
     can,
     wdog,
+    scg,
 };
 
 use s32k144evb::can::{
@@ -37,28 +34,23 @@ fn main() {
     s32k144evb::serial::init();
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
+
+    let scg_config = scg::Config{
+        system_oscillator: scg::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: scg::SystemOscillatorOutput::Div1,
+        .. Default::default()
+    };
+    
+    let scg = scg::Scg::init(peripherals.SCG, scg_config);
     
     let mut can_settings = CanSettings::default();    
     can_settings.source_frequency = 8000000;
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator
-    let scg = peripherals.SCG;
     let porte = peripherals.PORTE;
     let pcc = peripherals.PCC;
-        
-    scg.sosccfg.modify(|_, w| w
-                       .range()._11()
-                       .hgo()._1()
-                       .erefs()._1()
-    );
-    
-    scg.soscdiv.modify(|_, w| w
-                       .soscdiv2().bits(0b001)
-    );
-    
-    scg.sosccsr.modify(|_, w| w.soscen()._1());
-    
+            
     // Configure the can i/o pins
     pcc.pcc_porte.modify(|_, w| w.cgc()._1());
     porte.pcr4.modify(|_, w| w.mux()._101());

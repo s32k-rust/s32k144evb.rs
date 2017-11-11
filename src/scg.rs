@@ -51,6 +51,64 @@ impl Default for SystemOscillatorInput {
     }
 }
 
+/// SCG Run Modes
+///
+/// See section 26.4.1 in datasheet for a full description
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Mode {
+    /// Run mode
+    ///
+    /// - `CORE_CLK` and `SYS_CLK` clock freuqency must be 80M Hz or less (but not configured to be less than `BUS_CLK`).
+    /// - `BUS_CLK` clock frequency must be 48 Mhz or less (when using PLL as system clock source maximum bus clock frequency is 40 MHz).
+    /// - `FLASH_CLK` clock frequency must be 26.67 MHz or less.
+    /// - The core clock to flash clock ratio is limited to a max value of 8.
+    Run(RunMode),
+
+    /// High Speed Run mode
+    ///
+    /// - `CORE_CLK` and `SYS_CLK` clock freuqency must be 112M Hz or less.
+    /// - `BUS_CLK` clock frequency must be 56 Mhz or less.
+    /// - `FLASH_CLK` clock frequency must be 28 MHz or less.
+    /// - The core clock to flash clock ratio is limited to a max value of 8.
+    HighSpeed(HighSpeedMode),
+
+    /// Very low power mode
+    VeryLowPower(VeryLowPowerMode),
+}
+
+/// Clock selection modes available in `Mode::Run(_)`
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum RunMode {
+    /// System Oscillator Clock
+    SOSC,
+    
+    /// Slow Internal Reference Clock
+    SIRC,
+
+    /// Fast internal Reference Clock
+    FIRC,
+    
+    /// Sys PLL
+    SPLL,
+}
+
+/// Clock selection modes available in `Mode::HighSpeed(_)`
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum HighSpeedMode {
+    /// Fast internal Reference Clock
+    FIRC,
+    
+    /// Sys PLL
+    SPLL,
+}
+
+/// Clock selection modes available in `Mode::VeryLowPower(_)`
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum VeryLowPowerMode {
+    /// Slow Internal Reference Clock
+    SIRC,
+}
+
 /// Clock divider options for system oscillator.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SystemOscillatorOutput {

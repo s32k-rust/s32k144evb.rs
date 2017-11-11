@@ -96,5 +96,43 @@ pub struct Scg<'a> {
     register_block: &'a s32k144::scg::RegisterBlock,
     config: Config,
 }
+
+impl<'a> Scg<'a> {
+    /// Initialized the System Clock Generator with the given configs
+    pub fn init(scg: &'a s32k144::scg::RegisterBlock, config: Config) -> Self {
+        match config.system_oscillator {
+            SystemOscillatorInput::None => {
+                scg.sosccsr.modify(|_, w| w.soscen()._0());
+            },
+            SystemOscillatorInput::Crystal(f) => {
+                scg.sosccsr.modify(|_, w| w.soscen()._1());
+                scg.sosccfg.modify(|_, w| w
+                                   .erefs()._1()
+                                   .hgo()._1()
+                ); 
+ 
+                if f >= 8_000_000 {
+                    scg.sosccfg.modify(|_, w| w.range()._11());
+                } else {
+                    scg.sosccfg.modify(|_, w| w.range()._10());
+                }
+
+            },
+            SystemOscillatorInput::Reference(f) => {
+                scg.sosccsr.modify(|_, w| w.soscen()._1());
+                scg.sosccfg.modify(|_, w| w.erefs()._1());
+            },
+        }
+        
+        
+        scg.soscdiv.modify(|_, w| w.soscdiv1().bits(config.soscdiv1.into()));
+        scg.soscdiv.modify(|_, w| w.soscdiv2().bits(config.soscdiv2.into()));
+        
+        
+        Scg {
+            register_block: scg,
+            config: config,
+        }
+    }
 }
 

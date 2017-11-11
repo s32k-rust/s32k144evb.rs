@@ -15,6 +15,7 @@ pub mod led;
 pub mod wdog;
 pub mod can;
 pub mod lpuart;
+pub mod scg;
 
 #[macro_use]
 #[cfg(feature = "serial")]

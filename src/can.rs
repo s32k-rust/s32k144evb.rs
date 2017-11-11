@@ -3,6 +3,8 @@ use bit_field::BitField;
 use s32k144;
 use s32k144::can0;
 
+use scg;
+
 pub use embedded_types::can::{
     ID,
     CanFrame,
@@ -21,23 +23,36 @@ use embedded_types::io::Error as IOError;
 const TX_MAILBOXES: usize = 8;
 const RX_MAILBOXES: usize = 8;
 
-pub struct Can<'a>(&'a s32k144::can0::RegisterBlock);
+pub struct Can<'a> {
+    register_block: &'a s32k144::can0::RegisterBlock,
+    _scg: &'a scg::Scg<'a>,
+}
 
 impl<'a> Can<'a> {
-    pub fn init(can: &'a s32k144::can0::RegisterBlock, settings: &CanSettings) -> Result<Self, CanError> {
-        
-        if settings.source_frequency % settings.can_frequency != 0 {
+    pub fn init(can: &'a s32k144::can0::RegisterBlock,
+                scg: &'a scg::Scg<'a>,
+                settings: &CanSettings,
+    ) -> Result<Self, CanError> {
+
+        let source_frequency = {
+            match settings.clock_source {
+                ClockSource::Peripheral => unimplemented!("no support for peripheral oscillator yet"),
+                ClockSource::Oscilator => scg.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
+            }
+        };
+                
+        if source_frequency % settings.can_frequency != 0 {
             return Err(CanError::SettingsError);
         }
         
-        if settings.source_frequency < settings.can_frequency*5 {
+        if source_frequency < settings.can_frequency*5 {
             return Err(CanError::SettingsError);
         }
 
         // TODO: check if message_buffer_settings are longer than max MB available
         
-        let presdiv = (settings.source_frequency / settings.can_frequency) / 25;
-        let tqs = ( settings.source_frequency / (presdiv + 1) ) / settings.can_frequency;
+        let presdiv = (source_frequency / settings.can_frequency) / 25;
+        let tqs = ( source_frequency / (presdiv + 1) ) / settings.can_frequency;
 
         // Table 50-26 in datasheet, can standard compliant settings
         let (pseg2, rjw) =
@@ -116,8 +131,11 @@ impl<'a> Can<'a> {
         
         // Make some acceptance test to see if the configurations have been applied
         
-        return Ok(Can(can));
-               
+        return Ok(Can{
+            register_block: can,
+            _scg: scg,
+        });
+        
     }
 
     /// Does not attempt to swap frames if all mailboxes are full, not suitable for frames
@@ -127,8 +145,8 @@ impl<'a> Can<'a> {
         header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
 
         for i in 0..TX_MAILBOXES {
-            if read_mailbox_code(self.0, i) == MessageBufferCode::Transmit(TransmitBufferState::Inactive) {
-                match write_mailbox(self.0, &header, frame, i) {
+            if read_mailbox_code(self.register_block, i) == MessageBufferCode::Transmit(TransmitBufferState::Inactive) {
+                match write_mailbox(self.register_block, &header, frame, i) {
                     Ok(()) => return Ok(()),
                     Err(_) => (),
                 }
@@ -146,10 +164,10 @@ impl<'a> Can<'a> {
         transmit_header.code = MessageBufferCode::Transmit(TransmitBufferState::DataRemote);
         
         for i in 0..TX_MAILBOXES {
-            let (header, old_frame) = read_mailbox(self.0, i);
+            let (header, old_frame) = read_mailbox(self.register_block, i);
             match header.code {
                 MessageBufferCode::Transmit(TransmitBufferState::Inactive) => {
-                    write_mailbox(self.0, &transmit_header, frame, i).unwrap();
+                    write_mailbox(self.register_block, &transmit_header, frame, i).unwrap();
                     return Ok(None);
                 },
                 MessageBufferCode::Transmit(TransmitBufferState::DataRemote) => {
@@ -163,8 +181,8 @@ impl<'a> Can<'a> {
         }
 
         if highest_id > u32::from(frame.id()) {
-            let aborted_frame = abort_mailbox(self.0, mailbox_number);
-            write_mailbox(self.0, &transmit_header, frame, mailbox_number).unwrap();
+            let aborted_frame = abort_mailbox(self.register_block, mailbox_number);
+            write_mailbox(self.register_block, &transmit_header, frame, mailbox_number).unwrap();
             Ok(aborted_frame)
         } else {
             Err(IOError::BufferExhausted)
@@ -173,9 +191,9 @@ impl<'a> Can<'a> {
     
     pub fn receive(&self) -> Result<CanFrame, IOError> {
         for i in TX_MAILBOXES..(TX_MAILBOXES+RX_MAILBOXES) {
-            let new_message = self.0.iflag1.read().bits().get_bit(i as u8);
+            let new_message = self.register_block.iflag1.read().bits().get_bit(i as u8);
             if new_message {
-                let (_header, frame) = read_mailbox(self.0, i);
+                let (_header, frame) = read_mailbox(self.register_block, i);
                 return Ok(frame);
             }
         }           
@@ -214,7 +232,6 @@ pub struct CanSettings {
     /// order to guarantee reliable operation
     pub clock_source: ClockSource,
 
-    pub source_frequency: u32,
     pub can_frequency: u32,
     
 }
@@ -228,7 +245,6 @@ impl Default for CanSettings {
             loopback_mode: false,
             can_frequency: 1000000,
             clock_source: ClockSource::Oscilator,
-            source_frequency: 0,
         }
     }
 }
@@ -413,6 +429,7 @@ fn leave_freeze(can: &can0::RegisterBlock) {
 #[derive(Debug)]
 pub enum CanError {
     FreezeModeError,
+    ClockSourceDisabled,
     SettingsError,
     ConfigurationFailed,
     BusyMailboxWriteAttempted,

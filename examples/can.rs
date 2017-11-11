@@ -44,7 +44,6 @@ fn main() {
     let scg = scg::Scg::init(peripherals.SCG, scg_config);
     
     let mut can_settings = CanSettings::default();    
-    can_settings.source_frequency = scg.soscdiv2_freq().unwrap();
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator
@@ -58,7 +57,7 @@ fn main() {
     
     pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
-    let can = can::Can::init(peripherals.CAN0, &can_settings).unwrap();
+    let can = can::Can::init(peripherals.CAN0, &scg, &can_settings).unwrap();
 
     loop {
 

@@ -130,7 +130,7 @@ impl<'a> Scg<'a> {
                 }
 
             },
-            SystemOscillatorInput::Reference(f) => {
+            SystemOscillatorInput::Reference(_) => {
                 scg.sosccsr.modify(|_, w| w.soscen()._1());
                 scg.sosccfg.modify(|_, w| w.erefs()._1());
             },

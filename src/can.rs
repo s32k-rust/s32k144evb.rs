@@ -36,8 +36,8 @@ impl<'a> Can<'a> {
 
         let source_frequency = {
             match settings.clock_source {
-                ClockSource::Peripheral => unimplemented!("no support for peripheral oscillator yet"),
-                ClockSource::Oscilator => scg.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
+                ClockSource::Sys => unimplemented!("no support for peripheral oscillator yet"),
+                ClockSource::Soscdiv2 => scg.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
             }
         };
                 
@@ -76,7 +76,7 @@ impl<'a> Can<'a> {
         reset(can);
 
         // first set clock source
-        can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source.clone().into()));
+        can.ctrl1.modify(|_, w| w.clksrc().bit(settings.clock_source == ClockSource::Sys));
         
         enable(can);
         enter_freeze(can);
@@ -244,26 +244,28 @@ impl Default for CanSettings {
             individual_masking: false,
             loopback_mode: false,
             can_frequency: 1000000,
-            clock_source: ClockSource::Oscilator,
+            clock_source: ClockSource::Soscdiv2,
         }
     }
 }
 
-#[derive(Clone, Copy)]
+/// This bit selects the clock source to the CAN Protocol Engine (PE) to be either the peripheral clock or the
+/// oscillator clock.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ClockSource {
-    Peripheral,
-    Oscilator,
+    /// The CAN engine clock source is the oscillator clock. Under this condition, the oscillator clock
+    /// frequency must be lower than the bus clock.
+    Soscdiv2,
+
+    /// The CAN engine clock source is the peripheral clock.
+    Sys,
 }
 
-impl From<ClockSource> for bool {
-    fn from(cs: ClockSource) -> bool {
-        match cs {
-            ClockSource::Peripheral => true,
-            ClockSource::Oscilator => false,
-        }
+impl Default for ClockSource {
+    fn default() -> Self {
+        ClockSource::Soscdiv2
     }
-}
-    
+}    
  
 #[derive(Clone, PartialEq)]
 enum MessageBufferCode {

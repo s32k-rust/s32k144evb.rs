@@ -85,6 +85,18 @@ impl From<SystemOscillatorOutput> for u8 {
     }
 }
 
+impl From<SystemOscillatorOutput> for usize {
+    fn from(div: SystemOscillatorOutput) -> usize {
+        div as usize
+    }
+}
+
+impl From<SystemOscillatorOutput> for isize {
+    fn from(div: SystemOscillatorOutput) -> isize {
+        div as isize
+    }
+}
+
 impl Default for SystemOscillatorOutput {
     fn default() -> Self {
         SystemOscillatorOutput::Disable

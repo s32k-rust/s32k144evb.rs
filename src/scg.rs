@@ -146,5 +146,29 @@ impl<'a> Scg<'a> {
             config: config,
         }
     }
+
+    /// Return the frequency of socdiv1 clock if running
+    pub fn soscdiv1_freq(&self) -> Option<u32> {
+        let freq = self.config.system_oscillator.clock_frequency()?;
+        match self.config.soscdiv1 {
+            SystemOscillatorOutput::Disable => None,
+            oscillator_output => {
+                let div = 1 << (usize::from(oscillator_output) - 1);
+                Some(freq / div)
+            },
+        }
+    }
+    
+    /// Return the frequency of socdiv2 clock if running
+    pub fn soscdiv2_freq(&self) -> Option<u32> {
+        let freq = self.config.system_oscillator.clock_frequency()?;
+        match self.config.soscdiv2 {
+            SystemOscillatorOutput::Disable => None,
+            oscillator_output => {
+                let div = 1 << (usize::from(oscillator_output) - 1);
+                Some(freq / div)
+            },
+        }       
+    }
 }
 

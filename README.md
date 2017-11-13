@@ -13,7 +13,7 @@ J-Link supply firmware for OpenSDA hardware, with this you will be able to use t
 [Bobbin-cli](https://github.com/bobbin-rs/bobbin-cli) greatly simplifies compilation and flashing embedded software written in Rust. After installing the j-link tools, it can be installed by running ```cargo install bobbin-cli```. Run the LED example on a connected evaluation board with j-link firmware (or an external j-link) with ```bobbin load --example led``` or check out the [readme](https://github.com/bobbin-rs/bobbin-cli/blob/master/README.md) for a full description of what you can do.
 
 # Getting started coding (quickstart)
-There exists a quickstart template for s32k144evb projects. You can find the documentation [here](https://docs.rs/s32k144evb-quickstart)
+There exists a quickstart template for s32k144evb projects. You can find the documentation [here](https://crates.io/crates/s32k144evb-quickstart)
 
 # License
 

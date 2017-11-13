@@ -176,6 +176,12 @@ impl From<DivCore> for u8 {
     }
 }
 
+impl From<DivCore> for u32 {
+    fn from(d: DivCore) -> u32 {
+        d as u32
+    }
+}
+
 
 /// Clock divider options for system oscillator.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -358,6 +364,35 @@ impl<'a> Pc<'a> {
                 Some(freq / div)
             },
         }       
+    }
+    
+    /// Return the frequency of `CORE_CLK` in MHz
+    pub fn core_freq(&self) -> u32 {
+        match self.config.mode {
+            Mode::Run(mode) => {
+                match mode {
+                    RunMode::SOSC => {
+                        let freq = self.config.system_oscillator.clock_frequency().unwrap();
+                        freq / u32::from(self.config.div_core)
+                    },
+                    RunMode::SIRC => {
+                        unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
+                    },
+                    RunMode::FIRC => {
+                        48_000_000 / u32::from(self.config.div_core)
+                    },
+                    RunMode::SPLL => {
+                        unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
+                    },
+                }
+            },
+            Mode::HighSpeed(mode) => {
+                unimplemented!("High speed more is not supported yet");
+            },
+            Mode::VeryLowPower(_mode) => {
+                unimplemented!("Very low power mode is not supported yet");
+            },
+        }
     }
 }
 

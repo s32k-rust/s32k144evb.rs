@@ -46,7 +46,7 @@ fn main() {
         peripherals.SMC,
         peripherals.PMC,
         scg_config
-    );
+    ).unwrap();
     
     let mut can_settings = CanSettings::default();    
     can_settings.self_reception = false;

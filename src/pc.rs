@@ -11,6 +11,9 @@ use s32k144;
 /// Configurations for the System Clock Generator
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Config {
+    /// Set the power mode and system clock source
+    pub mode: Mode,
+    
     /// Set the configuration of XTAL and EXTAL pins.
     pub system_oscillator: SystemOscillatorInput,
 
@@ -181,6 +184,12 @@ pub struct Pc<'a> {
     config: Config,
 }
 
+/// The valid error types for Pc::init()
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Error {
+    NoSystemOscillator,
+}
+
 impl<'a> Pc<'a> {
     /// Initialized the System Clock Generator with the given configs
     pub fn init(
@@ -188,7 +197,8 @@ impl<'a> Pc<'a> {
         smc: &'a s32k144::smc::RegisterBlock,
         pmc: &'a s32k144::pmc::RegisterBlock,
         config: Config
-    ) -> Self {
+    ) -> Result<Self, Error> {
+      
         match config.system_oscillator {
             SystemOscillatorInput::None => {
                 scg.sosccsr.modify(|_, w| w.soscen()._0());
@@ -212,18 +222,59 @@ impl<'a> Pc<'a> {
                 scg.sosccfg.modify(|_, w| w.erefs()._1());
             },
         }
-        
+
+        // TODO: wait untill system oscillator is valid if configured
         
         scg.soscdiv.modify(|_, w| w.soscdiv1().bits(config.soscdiv1.into()));
         scg.soscdiv.modify(|_, w| w.soscdiv2().bits(config.soscdiv2.into()));
+
+        // Allowing a transition into HSRUN or VLPR
+        smc.pmprot.write(|w| w
+                         .ahsrun()._1()
+                         .avlp()._1()
+        );
+
+        // When configuring this, we should already have configured the source and make sure it's valid.      
+        match config.mode {
+            Mode::Run(mode) => {
+                match mode {
+                    RunMode::SOSC => {
+                        if let SystemOscillatorInput::None = config.system_oscillator {
+                            return Err(Error::NoSystemOscillator)
+                        }
+                        scg.rccr.modify(|_, w| w.scs()._0001());
+                    },
+                    RunMode::SIRC => {
+                        unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
+                        scg.rccr.modify(|_, w| w.scs()._0010());
+                    },
+                    RunMode::FIRC => {
+                        scg.rccr.modify(|_, w| w.scs()._0011())
+                    },
+                    RunMode::SPLL => {
+                        unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
+                        scg.rccr.modify(|_, w| w.scs()._0110())
+                    },
+                }
+                // transition into run mode
+                smc.pmctrl.modify(|_, w| w.runm()._00());
+                while smc.pmstat.read().pmstat().bits() != 0000_001 {}
+            },
+            Mode::HighSpeed(mode) => {
+                unimplemented!("High speed more is not supported yet");
+            },
+            Mode::VeryLowPower(_mode) => {
+                unimplemented!("Very low power mode is not supported yet");
+            },
+        }
         
         
-        Pc {
+        Ok(Pc {
             scg: scg,
             smc: smc,
             pmc: pmc,
             config: config,
-        }
+        })
     }
 
     /// Return the frequency of socdiv1 clock if running

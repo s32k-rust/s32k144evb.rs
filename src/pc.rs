@@ -82,6 +82,12 @@ pub enum Mode {
     VeryLowPower(VeryLowPowerMode),
 }
 
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Run(RunMode::FIRC)
+    }
+}
+
 /// Clock selection modes available in `Mode::Run(_)`
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum RunMode {

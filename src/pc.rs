@@ -131,37 +131,37 @@ pub enum VeryLowPowerMode {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DivCore {
     /// Divide by 1
-    Div1 = 0b0000,
+    Div1 = 1,
     /// Divide by 2
-    Div2 = 0b0001,
+    Div2 = 2,
     /// Divide by 3
-    Div3 = 0b0010,
+    Div3 = 3,
     /// Divide by 4
-    Div4 = 0b0011,
+    Div4 = 4,
     /// Divide by 5
-    Div5 = 0b0100,
+    Div5 = 5,
     /// Divide by 6
-    Div6 = 0b0101,
+    Div6 = 6,
     /// Divide by 7
-    Div7 = 0b0110,
+    Div7 = 7,
     /// Divide by 8
-    Div8 = 0b0111,
+    Div8 = 8,
     /// Divide by 9
-    Div9 = 0b1000,
+    Div9 = 9,
     /// Divide by 10
-    Div10 = 0b1001,
+    Div10 = 10,
     /// Divide by 11
-    Div11 = 0b1010,
+    Div11 = 11,
     /// Divide by 12
-    Div12 = 0b1011,
+    Div12 = 12,
     /// Divide by 13
-    Div13 = 0b1100,
+    Div13 = 13,
     /// Divide by 14
-    Div14 = 0b1101,
+    Div14 = 14,
     /// Divide by 15
-    Div15 = 0b1110,
+    Div15 = 15,
     /// Divide by 16
-    Div16 = 0b1111,
+    Div16 = 16,
 }
 
 impl Default for DivCore {
@@ -297,7 +297,7 @@ impl<'a> Pc<'a> {
         match config.mode {
             Mode::Run(mode) => {
                 // Set the dividers
-                scg.rccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
+                scg.rccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core) - 1));
                 match mode {
                     RunMode::SOSC => {
                         if let SystemOscillatorInput::None = config.system_oscillator {

@@ -36,7 +36,7 @@ impl<'a> Can<'a> {
 
         let source_frequency = {
             match settings.clock_source {
-                ClockSource::Sys => unimplemented!("no support for peripheral oscillator yet"),
+                ClockSource::Sys => pc.core_freq(),
                 ClockSource::Soscdiv2 => pc.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
             }
         };

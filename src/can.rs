@@ -3,7 +3,7 @@ use bit_field::BitField;
 use s32k144;
 use s32k144::can0;
 
-use scg;
+use pc;
 
 pub use embedded_types::can::{
     ID,
@@ -25,19 +25,19 @@ const RX_MAILBOXES: usize = 8;
 
 pub struct Can<'a> {
     register_block: &'a s32k144::can0::RegisterBlock,
-    _scg: &'a scg::Scg<'a>,
+    _pc: &'a pc::Pc<'a>,
 }
 
 impl<'a> Can<'a> {
     pub fn init(can: &'a s32k144::can0::RegisterBlock,
-                scg: &'a scg::Scg<'a>,
+                pc: &'a pc::Pc<'a>,
                 settings: &CanSettings,
     ) -> Result<Self, CanError> {
 
         let source_frequency = {
             match settings.clock_source {
                 ClockSource::Sys => unimplemented!("no support for peripheral oscillator yet"),
-                ClockSource::Soscdiv2 => scg.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
+                ClockSource::Soscdiv2 => pc.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
             }
         };
                 
@@ -133,7 +133,7 @@ impl<'a> Can<'a> {
         
         return Ok(Can{
             register_block: can,
-            _scg: scg,
+            _pc: pc,
         });
         
     }

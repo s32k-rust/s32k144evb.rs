@@ -1,4 +1,10 @@
-//! The System Clock Generator module
+//! The Power and Clocking (PC) SW module
+//!
+//! This consists of the following HW modules
+//!
+//! - SCG (System Clock Generator)
+//! - SMC (System Mode Controller)
+//! - PMC (Power Management Controller)
 
 use s32k144;
 
@@ -162,14 +168,21 @@ impl Default for SystemOscillatorOutput {
 }
 
 /// The System Clock Generator instance
-pub struct Scg<'a> {
-    register_block: &'a s32k144::scg::RegisterBlock,
+pub struct Pc<'a> {
+    scg: &'a s32k144::scg::RegisterBlock,
+    smc: &'a s32k144::smc::RegisterBlock,
+    pmc: &'a s32k144::pmc::RegisterBlock,
     config: Config,
 }
 
-impl<'a> Scg<'a> {
+impl<'a> Pc<'a> {
     /// Initialized the System Clock Generator with the given configs
-    pub fn init(scg: &'a s32k144::scg::RegisterBlock, config: Config) -> Self {
+    pub fn init(
+        scg: &'a s32k144::scg::RegisterBlock,
+        smc: &'a s32k144::smc::RegisterBlock,
+        pmc: &'a s32k144::pmc::RegisterBlock,
+        config: Config
+    ) -> Self {
         match config.system_oscillator {
             SystemOscillatorInput::None => {
                 scg.sosccsr.modify(|_, w| w.soscen()._0());
@@ -199,8 +212,10 @@ impl<'a> Scg<'a> {
         scg.soscdiv.modify(|_, w| w.soscdiv2().bits(config.soscdiv2.into()));
         
         
-        Scg {
-            register_block: scg,
+        Pc {
+            scg: scg,
+            smc: smc,
+            pmc: pmc,
             config: config,
         }
     }

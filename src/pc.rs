@@ -13,6 +13,9 @@ use s32k144;
 pub struct Config {
     /// Set the power mode and system clock source
     pub mode: Mode,
+
+    /// Clock divider for `CORE_CLK` and `SYS_CLK`.    
+    pub div_core: DivCore,
     
     /// Set the configuration of XTAL and EXTAL pins.
     pub system_oscillator: SystemOscillatorInput,
@@ -123,6 +126,56 @@ pub enum VeryLowPowerMode {
     /// Slow Internal Reference Clock
     SIRC,
 }
+
+/// Clock divider for `CORE_CLK` and `SYS_CLK`.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum DivCore {
+    /// Divide by 1
+    Div1 = 0b0000,
+    /// Divide by 2
+    Div2 = 0b0001,
+    /// Divide by 3
+    Div3 = 0b0010,
+    /// Divide by 4
+    Div4 = 0b0011,
+    /// Divide by 5
+    Div5 = 0b0100,
+    /// Divide by 6
+    Div6 = 0b0101,
+    /// Divide by 7
+    Div7 = 0b0110,
+    /// Divide by 8
+    Div8 = 0b0111,
+    /// Divide by 9
+    Div9 = 0b1000,
+    /// Divide by 10
+    Div10 = 0b1001,
+    /// Divide by 11
+    Div11 = 0b1010,
+    /// Divide by 12
+    Div12 = 0b1011,
+    /// Divide by 13
+    Div13 = 0b1100,
+    /// Divide by 14
+    Div14 = 0b1101,
+    /// Divide by 15
+    Div15 = 0b1110,
+    /// Divide by 16
+    Div16 = 0b1111,
+}
+
+impl Default for DivCore {
+    fn default() -> Self {
+        DivCore::Div1
+    }
+}
+
+impl From<DivCore> for u8 {
+    fn from(d: DivCore) -> u8 {
+        d as u8
+    }
+}
+
 
 /// Clock divider options for system oscillator.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -237,6 +290,8 @@ impl<'a> Pc<'a> {
         // When configuring this, we should already have configured the source and make sure it's valid.      
         match config.mode {
             Mode::Run(mode) => {
+                // Set the dividers
+                scg.rccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 match mode {
                     RunMode::SOSC => {
                         if let SystemOscillatorInput::None = config.system_oscillator {
@@ -261,9 +316,13 @@ impl<'a> Pc<'a> {
                 while smc.pmstat.read().pmstat().bits() != 0000_001 {}
             },
             Mode::HighSpeed(mode) => {
+                // Set the dividers
+                scg.hccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 unimplemented!("High speed more is not supported yet");
             },
             Mode::VeryLowPower(_mode) => {
+                // Set the dividers
+                scg.vccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 unimplemented!("Very low power mode is not supported yet");
             },
         }

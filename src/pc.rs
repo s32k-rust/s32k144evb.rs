@@ -263,7 +263,6 @@ impl<'a> Pc<'a> {
                 scg.sosccsr.modify(|_, w| w.soscen()._0());
             },
             SystemOscillatorInput::Crystal(f) => {
-                scg.sosccsr.modify(|_, w| w.soscen()._1());
                 scg.sosccfg.modify(|_, w| w
                                    .erefs()._1()
                                    .hgo()._1()
@@ -274,6 +273,7 @@ impl<'a> Pc<'a> {
                 } else {
                     scg.sosccfg.modify(|_, w| w.range()._10());
                 }
+                scg.sosccsr.modify(|_, w| w.soscen()._1());
 
             },
             SystemOscillatorInput::Reference(_) => {

@@ -16,7 +16,9 @@ fn main() {
     wdog_settings.enable = false;
     wdog::configure(wdog_settings).unwrap();
 
-    s32k144evb::serial::init();
+    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    
+    let serial = s32k144evb::serial::Serial::init(peripherals.LPUART1);
 
     println!("This is a println");
     println!("Next a panic will be demonstrated by overflowing an integer");

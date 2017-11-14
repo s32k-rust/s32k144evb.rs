@@ -5,6 +5,7 @@ use core::fmt::Write;
 
 use cortex_m;
 
+use s32k144;
 use s32k144::LPUART1;
 use s32k144::PCC;
 use s32k144::PORTC;
@@ -15,20 +16,31 @@ use embedded_types::io::blocking;
 
 use lpuart;
 
-struct Port<'p>(&'p lpuart0::RegisterBlock);
-
-impl<'p> fmt::Write for Port<'p> {
+impl<'p> fmt::Write for Serial<'p> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.as_bytes() {
-            blocking(|| lpuart::transmit(self.0, *c)).unwrap();
+            blocking(|| lpuart::transmit(self.lpuart, *c)).unwrap();
         }
         Ok(())
     }
 }
 
+pub struct Serial<'a> {
+    lpuart: &'a lpuart0::RegisterBlock,
+}
+
+impl<'a> Serial<'a> {
+    pub fn init(lpuart: &'a s32k144::lpuart0::RegisterBlock) -> Self{
+        init(lpuart);
+        Serial{
+            lpuart: lpuart,
+        }
+    }
+}
+
 /// This init functions needs to be called before using any of the functionality in this module
 #[cfg(feature = "serial")]
-pub fn init() {
+fn init(lpuart: & s32k144::lpuart0::RegisterBlock) {
     let mut uart_config = lpuart::Config::default();
     uart_config.baudrate = 115200;
 
@@ -57,11 +69,7 @@ pub fn init() {
         let portc = PORTC.borrow(cs);
         portc.pcr6.modify(|_, w| w.mux()._010());
         portc.pcr7.modify(|_, w| w.mux()._010());
-        
-        
-        let lpuart = LPUART1.borrow(cs);
-        
-        
+                
         lpuart::configure(lpuart, uart_config, 8000000).unwrap();
     });
 }
@@ -70,7 +78,7 @@ pub fn init() {
 pub fn write_str(string: &str) {
     cortex_m::interrupt::free(|cs| {
         let lpuart = LPUART1.borrow(cs);
-        Port(&lpuart).write_str(string).ok();
+        Serial{lpuart: &lpuart}.write_str(string).ok();
     });
 }
 
@@ -78,7 +86,7 @@ pub fn write_str(string: &str) {
 pub fn write_fmt(fmt: fmt::Arguments) {
     cortex_m::interrupt::free(|cs| {
         let lpuart = LPUART1.borrow(cs);
-        Port(&lpuart).write_fmt(fmt).ok();
+        Serial{lpuart: &lpuart}.write_fmt(fmt).ok();
     });
 }
 

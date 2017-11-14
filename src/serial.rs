@@ -29,8 +29,8 @@ impl<'p> fmt::Write for Port<'p> {
 /// This init functions needs to be called before using any of the functionality in this module
 #[cfg(feature = "serial")]
 pub fn init() {
-    let mut uart_settings = lpuart::UartSettings::default();
-    uart_settings.baudrate = 115200;
+    let mut uart_config = lpuart::Config::default();
+    uart_config.baudrate = 115200;
 
     cortex_m::interrupt::free(|cs| {
         
@@ -62,7 +62,7 @@ pub fn init() {
         let lpuart = LPUART1.borrow(cs);
         
         
-        lpuart::configure(lpuart, uart_settings, 8000000).unwrap();
+        lpuart::configure(lpuart, uart_config, 8000000).unwrap();
     });
 }
 

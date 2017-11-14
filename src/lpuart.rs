@@ -7,16 +7,16 @@ pub enum UartError {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct UartSettings {
+pub struct Config {
     pub baudrate: u32,
     pub data_bits: DataBits,
     pub parity: Parity,
     pub stop_bits: StopBits,
 }
 
-impl Default for UartSettings {
+impl Default for Config {
     fn default() -> Self {
-        UartSettings{
+        Config{
             baudrate: 9600,
             data_bits: DataBits::B8,
             stop_bits: StopBits::B1,
@@ -46,7 +46,7 @@ pub enum Parity {
     O,
 }
 
-pub fn configure(lpuart: &lpuart0::RegisterBlock, settings: UartSettings, source_frequency: u32) -> Result<(), UartError> {
+pub fn configure(lpuart: &lpuart0::RegisterBlock, config: Config, source_frequency: u32) -> Result<(), UartError> {
     // disable receiver and transmiter
     lpuart.ctrl.modify(|_r, w| w
                        .te().clear_bit()
@@ -54,22 +54,22 @@ pub fn configure(lpuart: &lpuart0::RegisterBlock, settings: UartSettings, source
     );
 
     // TODO: check that divisor is a sensible value
-    let (oversampling_ratio, divisor) = find_decent_div(source_frequency, settings.baudrate)?;
+    let (oversampling_ratio, divisor) = find_decent_div(source_frequency, config.baudrate)?;
     let bothedge = oversampling_ratio < 8;
     
     lpuart.baud.write(|w| unsafe{ w
-                                  .m10().bit(settings.data_bits == DataBits::B10)
-                                  .sbns().bit(settings.stop_bits == StopBits::B2)
+                                  .m10().bit(config.data_bits == DataBits::B10)
+                                  .sbns().bit(config.stop_bits == StopBits::B2)
                                   .bothedge().bit(bothedge)
                                   .osr().bits(oversampling_ratio-1)
                                   .sbr().bits(divisor as u16)
     });
 
     lpuart.ctrl.write(|w| w
-                      .m7().bit(settings.data_bits == DataBits::B7)
-                      .m().bit(settings.data_bits == DataBits::B9)
-                      .pe().bit(settings.parity != Parity::N)
-                      .pt().bit(settings.parity == Parity::O)
+                      .m7().bit(config.data_bits == DataBits::B7)
+                      .m().bit(config.data_bits == DataBits::B9)
+                      .pe().bit(config.parity != Parity::N)
+                      .pt().bit(config.parity == Parity::O)
     );
 
     lpuart.fifo.write(|w| w

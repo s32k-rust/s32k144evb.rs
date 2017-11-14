@@ -15,6 +15,7 @@ use s32k144::lpuart0;
 use embedded_types::io::blocking;
 
 use lpuart;
+use pc;
 
 impl<'p> fmt::Write for Serial<'p> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -27,13 +28,18 @@ impl<'p> fmt::Write for Serial<'p> {
 
 pub struct Serial<'a> {
     lpuart: &'a lpuart0::RegisterBlock,
+    //_pc: &'a pc::Pc<'a>,
 }
 
 impl<'a> Serial<'a> {
-    pub fn init(lpuart: &'a s32k144::lpuart0::RegisterBlock) -> Self{
+    pub fn init(
+        lpuart: &'a s32k144::lpuart0::RegisterBlock,
+        pc: &'a pc::Pc<'a>,
+    ) -> Self{
         init(lpuart);
         Serial{
             lpuart: lpuart,
+            //_pc: pc,
         }
     }
 }
@@ -45,20 +51,6 @@ fn init(lpuart: & s32k144::lpuart0::RegisterBlock) {
     uart_config.baudrate = 115200;
 
     cortex_m::interrupt::free(|cs| {
-        
-        let scg = SCG.borrow(cs);
-        
-        scg.sosccfg.modify(|_, w| w
-                           .range()._11()
-                           .hgo()._1()
-                           .erefs()._1()
-        );
-        
-        scg.soscdiv.modify(|_, w| w
-                           .soscdiv2().bits(0b001)
-        );
-        
-        scg.sosccsr.modify(|_, w| w.soscen()._1());
         
         let pcc = PCC.borrow(cs);
         pcc.pcc_lpuart1.modify(|_, w| w.cgc()._0());

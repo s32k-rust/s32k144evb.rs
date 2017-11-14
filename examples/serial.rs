@@ -7,6 +7,8 @@ extern crate s32k144;
 extern crate s32k144evb;
 extern crate embedded_types;
 
+use core::fmt::Write;
+
 use s32k144evb::{
     wdog,
 };
@@ -18,14 +20,14 @@ fn main() {
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
     
-    let serial = s32k144evb::serial::Serial::init(peripherals.LPUART1);
+    let mut serial = s32k144evb::serial::Serial::init(peripherals.LPUART1);
 
-    println!("This is a println");
-    println!("Next a panic will be demonstrated by overflowing an integer");
+    writeln!(serial, "This is a println");
+    writeln!(serial, "Next a panic will be demonstrated by overflowing an integer");
     let mut i: u8 = 0;
 
     loop {
-        println!("I count: {}", i);
+        writeln!(serial, "I count: {}", i);
         i += 1;
     }
 }

@@ -90,29 +90,6 @@ pub fn write_fmt(fmt: fmt::Arguments) {
     });
 }
 
-#[cfg(feature = "print-over-serial")]
-#[macro_export]
-macro_rules! print {
-    ($fmt:expr) => {
-        s32k144evb::serial::write_str($fmt);
-    };
-    ($($arg:tt)*) => {
-        s32k144evb::serial::write_fmt(format_args!($($arg)*));
-    };
-}
-
-#[cfg(feature = "print-over-serial")]
-#[macro_export]
-macro_rules! println {
-    ($fmt:expr) => {
-        print!(concat!($fmt, "\n"));
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        print!(concat!($fmt, "\n"), $($arg)*);
-    };
-}
-
-
 #[cfg(feature = "panic-over-serial")]
 #[lang = "panic_fmt"]
 unsafe extern "C" fn panic_fmt(

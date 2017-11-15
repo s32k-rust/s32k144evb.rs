@@ -28,7 +28,7 @@ impl<'p> fmt::Write for Serial<'p> {
 
 pub struct Serial<'a> {
     lpuart: &'a lpuart0::RegisterBlock,
-    //_pc: &'a pc::Pc<'a>,
+    _pc: &'a pc::Pc<'a>,
 }
 
 impl<'a> Serial<'a> {
@@ -39,7 +39,7 @@ impl<'a> Serial<'a> {
         init(lpuart);
         Serial{
             lpuart: lpuart,
-            //_pc: pc,
+            _pc: pc,
         }
     }
 }
@@ -66,22 +66,6 @@ fn init(lpuart: & s32k144::lpuart0::RegisterBlock) {
     });
 }
 
-#[cfg(feature = "serial")]
-pub fn write_str(string: &str) {
-    cortex_m::interrupt::free(|cs| {
-        let lpuart = LPUART1.borrow(cs);
-        Serial{lpuart: &lpuart}.write_str(string).ok();
-    });
-}
-
-#[cfg(feature = "serial")]
-pub fn write_fmt(fmt: fmt::Arguments) {
-    cortex_m::interrupt::free(|cs| {
-        let lpuart = LPUART1.borrow(cs);
-        Serial{lpuart: &lpuart}.write_fmt(fmt).ok();
-    });
-}
-
 #[cfg(feature = "panic-over-serial")]
 #[lang = "panic_fmt"]
 unsafe extern "C" fn panic_fmt(
@@ -90,8 +74,28 @@ unsafe extern "C" fn panic_fmt(
     line: u32,
     _column: u32) -> ! {
 
-    write_fmt(format_args!("Panicked at '{}', {}:{}\n", msg, file, line));
+    // This function is diverging, so if any settings have been previously made we will mess with them freely.
+    
+    let pc_config = pc::Config{
+        system_oscillator: pc::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: pc::SystemOscillatorOutput::Div1,
+        .. Default::default()
+    };
+    
+    cortex_m::interrupt::free(|cs| {
+        
+        let pc = pc::Pc::init(
+            s32k144::SCG.borrow(cs),
+            s32k144::SMC.borrow(cs),
+            s32k144::PMC.borrow(cs),
+            pc_config
+        ).unwrap();
+        
+        let mut serial = Serial::init(LPUART1.borrow(cs), &pc);
 
+        writeln!(serial, "Panicked at '{}', {}:{}", msg, file, line).unwrap();
+    });
+                              
     // If running in debug mode, stop. If not, abort.
     if cfg!(debug_assertions) {
         loop {}

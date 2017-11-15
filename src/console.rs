@@ -1,4 +1,9 @@
-//! This module takes care of interfacing the serial port on the SDAOpen interface
+//! This module gives a consistent interface over different "remote consoles"
+//!
+//! The most common consoles in use for this chip are:
+//!  - LPUART (LPUART1 is the one connected to the OpenSDA chip on s32k144evb)
+//!  - ITM
+// TODO: implement and test ITM
 
 use core::fmt;
 
@@ -30,6 +35,7 @@ impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     }
 }
 
+/// Allow usage of uart as a Console
 pub struct LpuartConsole<'a> {
     lpuart: lpuart::Lpuart<'a>,
 }

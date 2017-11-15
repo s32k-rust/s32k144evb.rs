@@ -1,7 +1,6 @@
 //! This module takes care of interfacing the serial port on the SDAOpen interface
 
 use core::fmt;
-use core::fmt::Write;
 
 use cortex_m;
 
@@ -12,17 +11,22 @@ use s32k144::PORTC;
 use s32k144::SCG;
 use s32k144::lpuart0;
 
-use embedded_types::io::blocking;
+use embedded_types;
+use embedded_types::io::Write;
 
 use lpuart;
 use pc;
 
-impl<'p> fmt::Write for Serial<'p> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        for c in s.as_bytes() {
-            blocking(|| lpuart::transmit(self.lpuart, *c)).unwrap();
+impl<'p> embedded_types::io::Write for Serial<'p> {
+    fn write(&mut self, buf: &[u8]) -> embedded_types::io::Result<usize> {
+        for i in 0..buf.len() {
+            match lpuart::transmit(self.lpuart, buf[i]) {
+                Ok(()) => (),
+                Err(embedded_types::io::Error::BufferExhausted) => return Ok(i),
+                Err(e) => return Err(e),
+            }
         }
-        Ok(())
+        Ok(buf.len())
     }
 }
 

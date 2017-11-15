@@ -7,7 +7,7 @@ extern crate s32k144;
 extern crate s32k144evb;
 extern crate embedded_types;
 
-use core::fmt::Write;
+use embedded_types::io::Write;
 
 use s32k144evb::{
     wdog,

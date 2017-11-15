@@ -31,8 +31,6 @@ fn main() {
     wdog_settings.enable = false;
     wdog::configure(wdog_settings);
 
-    s32k144evb::serial::init();
-
     let peripherals = unsafe{ s32k144::Peripherals::all() };
 
     let scg_config = pc::Config{

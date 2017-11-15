@@ -24,6 +24,11 @@ unsafe extern "C" fn panic_fmt(
         iprintln!(&itm.stim[0], "Panicked at '{}', {}:{}", msg, file, line);
     });
 
+    // If running in debug mode, stop. If not, abort.
+    if cfg!(debug_assertions) {
+        loop {}
+    }
+
     ::core::intrinsics::abort()
 }
 

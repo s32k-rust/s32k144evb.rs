@@ -34,7 +34,7 @@ fn main() {
         pc_config
     ).unwrap();
     
-    let mut serial = s32k144evb::serial::Serial::init(peripherals.LPUART1, &pc);
+    let mut serial = s32k144evb::console::Serial::init(peripherals.LPUART1, &pc);
 
     writeln!(serial, "This is a println").unwrap();
     writeln!(serial, "Next a panic will be demonstrated by overflowing an integer").unwrap();

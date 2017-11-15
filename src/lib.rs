@@ -18,8 +18,7 @@ pub mod lpuart;
 pub mod pc;
 
 #[macro_use]
-#[cfg(feature = "serial")]
-pub mod serial;
+pub mod console;
 
 #[cfg(feature = "itm")]
 mod itm;

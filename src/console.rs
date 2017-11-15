@@ -61,45 +61,4 @@ impl<'a> Serial<'a> {
     }
 }
 
-/// This init functions needs to be called before using any of the functionality in this module
-#[cfg(feature = "serial")]
-fn init(lpuart: & s32k144::lpuart0::RegisterBlock) {
-}
 
-#[cfg(feature = "panic-over-serial")]
-#[lang = "panic_fmt"]
-unsafe extern "C" fn panic_fmt(
-    msg: fmt::Arguments,
-    file: &'static str,
-    line: u32,
-    _column: u32) -> ! {
-
-    // This function is diverging, so if any settings have been previously made we will mess with them freely.
-    
-    let pc_config = pc::Config{
-        system_oscillator: pc::SystemOscillatorInput::Crystal(8_000_000),
-        soscdiv2: pc::SystemOscillatorOutput::Div1,
-        .. Default::default()
-    };
-    
-    cortex_m::interrupt::free(|cs| {
-        
-        let pc = pc::Pc::init(
-            s32k144::SCG.borrow(cs),
-            s32k144::SMC.borrow(cs),
-            s32k144::PMC.borrow(cs),
-            pc_config
-        ).unwrap();
-        
-        let mut serial = Serial::init(LPUART1.borrow(cs), &pc);
-
-        writeln!(serial, "Panicked at '{}', {}:{}", msg, file, line).unwrap();
-    });
-                              
-    // If running in debug mode, stop. If not, abort.
-    if cfg!(debug_assertions) {
-        loop {}
-    }
-    
-    ::core::intrinsics::abort()
-}

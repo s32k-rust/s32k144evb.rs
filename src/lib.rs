@@ -20,5 +20,5 @@ pub mod pc;
 #[macro_use]
 pub mod console;
 
-#[cfg(feature = "itm")]
-mod itm;
+#[cfg(any(feature = "panic-over-itm", feature = "panic-over-serial"))]
+mod panic;

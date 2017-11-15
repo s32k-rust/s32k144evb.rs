@@ -57,7 +57,7 @@ unsafe extern "C" fn panic_fmt(
             pc_config
         ).unwrap();
         
-        let mut serial = console::Serial::init(s32k144::LPUART1.borrow(cs), &pc);
+        let mut serial = console::LpuartConsole::init(s32k144::LPUART1.borrow(cs), &pc);
 
         writeln!(serial, "Panicked at '{}', {}:{}", msg, file, line).unwrap();
     });

@@ -34,14 +34,14 @@ fn main() {
         pc_config
     ).unwrap();
     
-    let mut serial = s32k144evb::console::Serial::init(peripherals.LPUART1, &pc);
+    let mut console = s32k144evb::console::LpuartConsole::init(peripherals.LPUART1, &pc);
 
-    writeln!(serial, "This is a println").unwrap();
-    writeln!(serial, "Next a panic will be demonstrated by overflowing an integer").unwrap();
+    writeln!(console, "This is a println").unwrap();
+    writeln!(console, "Next a panic will be demonstrated by overflowing an integer").unwrap();
     let mut i: u8 = 0;
 
     loop {
-        writeln!(serial, "I count: {}", i).unwrap();
+        writeln!(console, "I count: {}", i).unwrap();
         i += 1;
     }
 }

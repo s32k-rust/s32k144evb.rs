@@ -17,7 +17,7 @@ use embedded_types::io::Write;
 use lpuart;
 use pc;
 
-impl<'p> embedded_types::io::Write for Serial<'p> {
+impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     fn write(&mut self, buf: &[u8]) -> embedded_types::io::Result<usize> {
         for i in 0..buf.len() {
             match self.lpuart.transmit(buf[i]) {
@@ -30,11 +30,11 @@ impl<'p> embedded_types::io::Write for Serial<'p> {
     }
 }
 
-pub struct Serial<'a> {
+pub struct LpuartConsole<'a> {
     lpuart: lpuart::Lpuart<'a>,
 }
 
-impl<'a> Serial<'a> {
+impl<'a> LpuartConsole<'a> {
     pub fn init(
         lpuart: &'a s32k144::lpuart0::RegisterBlock,
         pc: &'a pc::Pc<'a>,
@@ -55,7 +55,7 @@ impl<'a> Serial<'a> {
             portc.pcr7.modify(|_, w| w.mux()._010());
         });
 
-        Serial{
+        LpuartConsole{
             lpuart: lpuart::Lpuart::init(lpuart, pc, uart_config, 8_000_000).unwrap(),
         }
     }

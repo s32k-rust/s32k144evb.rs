@@ -17,7 +17,6 @@ pub mod can;
 pub mod lpuart;
 pub mod pc;
 
-#[macro_use]
 pub mod console;
 
 #[cfg(any(feature = "panic-over-itm", feature = "panic-over-serial"))]

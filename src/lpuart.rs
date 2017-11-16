@@ -1,7 +1,7 @@
 use s32k144::lpuart0;
 use embedded_types::io::Error as IOError;
 
-use pc;
+use spc;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UartError {
@@ -50,14 +50,14 @@ pub enum Parity {
 
 pub struct Lpuart<'a> {
     lpuart: &'a lpuart0::RegisterBlock,
-    _pc: &'a pc::Pc<'a>,
+    _spc: &'a spc::Spc<'a>,
     config: Config,
 }
 
 impl<'a> Lpuart<'a> {
     pub fn init(
         lpuart: &'a lpuart0::RegisterBlock,
-        pc: &'a pc::Pc<'a>,
+        spc: &'a spc::Spc<'a>,
         config: Config,
         source_frequency: u32
     ) -> Result<Lpuart<'a>, UartError> {
@@ -66,7 +66,7 @@ impl<'a> Lpuart<'a> {
                            .te().clear_bit()
                            .re().clear_bit()
         );
-
+        
         // TODO: check that divisor is a sensible value
         let (oversampling_ratio, divisor) = find_decent_div(source_frequency, config.baudrate)?;
         let bothedge = oversampling_ratio < 8;
@@ -98,7 +98,7 @@ impl<'a> Lpuart<'a> {
 
         Ok(Lpuart{
             lpuart: lpuart,
-            _pc: pc,
+            _spc: spc,
             config: config,
         })
     }

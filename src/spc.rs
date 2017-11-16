@@ -1,4 +1,4 @@
-//! The Power and Clocking (PC) SW module
+//! The System Power and Clocking (SPC) SW module
 //!
 //! This consists of the following HW modules
 //!
@@ -236,7 +236,7 @@ impl Default for SystemOscillatorOutput {
 }
 
 /// The System Clock Generator instance
-pub struct Pc<'a> {
+pub struct Spc<'a> {
     scg: &'a s32k144::scg::RegisterBlock,
     smc: &'a s32k144::smc::RegisterBlock,
     pmc: &'a s32k144::pmc::RegisterBlock,
@@ -249,7 +249,7 @@ pub enum Error {
     NoSystemOscillator,
 }
 
-impl<'a> Pc<'a> {
+impl<'a> Spc<'a> {
     /// Initialized the System Clock Generator with the given configs
     pub fn init(
         scg: &'a s32k144::scg::RegisterBlock,
@@ -334,7 +334,7 @@ impl<'a> Pc<'a> {
         }
         
         
-        Ok(Pc {
+        Ok(Spc {
             scg: scg,
             smc: smc,
             pmc: pmc,

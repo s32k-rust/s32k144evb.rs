@@ -15,7 +15,7 @@ pub mod led;
 pub mod wdog;
 pub mod can;
 pub mod lpuart;
-pub mod pc;
+pub mod spc;
 
 pub mod console;
 

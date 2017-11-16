@@ -20,7 +20,7 @@ use embedded_types;
 use embedded_types::io::Write;
 
 use lpuart;
-use pc;
+use spc;
 
 impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     fn write(&mut self, buf: &[u8]) -> embedded_types::io::Result<usize> {
@@ -43,7 +43,7 @@ pub struct LpuartConsole<'a> {
 impl<'a> LpuartConsole<'a> {
     pub fn init(
         lpuart: &'a s32k144::lpuart0::RegisterBlock,
-        pc: &'a pc::Pc<'a>,
+        spc: &'a spc::Spc<'a>,
     ) -> Self{
         let mut uart_config = lpuart::Config::default();
         uart_config.baudrate = 115200;
@@ -62,7 +62,7 @@ impl<'a> LpuartConsole<'a> {
         });
 
         LpuartConsole{
-            lpuart: lpuart::Lpuart::init(lpuart, pc, uart_config, 8_000_000).unwrap(),
+            lpuart: lpuart::Lpuart::init(lpuart, spc, uart_config, 8_000_000).unwrap(),
         }
     }
 }

@@ -12,7 +12,7 @@ use cortex_m::asm;
 use s32k144evb::{
     can,
     wdog,
-    pc,
+    spc,
 };
 
 use s32k144evb::can::{
@@ -33,17 +33,17 @@ fn main() {
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
 
-    let scg_config = pc::Config{
-        system_oscillator: pc::SystemOscillatorInput::Crystal(8_000_000),
-        soscdiv2: pc::SystemOscillatorOutput::Div1,
+    let spc_config = spc::Config{
+        system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: spc::SystemOscillatorOutput::Div1,
         .. Default::default()
     };
     
-    let scg = pc::Pc::init(
+    let spc = spc::Spc::init(
         peripherals.SCG,
         peripherals.SMC,
         peripherals.PMC,
-        scg_config
+        spc_config
     ).unwrap();
     
     let mut can_settings = CanSettings::default();    
@@ -60,7 +60,7 @@ fn main() {
     
     pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
-    let can = can::Can::init(peripherals.CAN0, &scg, &can_settings).unwrap();
+    let can = can::Can::init(peripherals.CAN0, &spc, &can_settings).unwrap();
 
     loop {
 

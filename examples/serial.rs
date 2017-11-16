@@ -11,7 +11,7 @@ use embedded_types::io::Write;
 
 use s32k144evb::{
     wdog,
-    pc,
+    spc,
 };
 
 fn main() {
@@ -21,20 +21,20 @@ fn main() {
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
     
-    let pc_config = pc::Config{
-        system_oscillator: pc::SystemOscillatorInput::Crystal(8_000_000),
-        soscdiv2: pc::SystemOscillatorOutput::Div1,
+    let pc_config = spc::Config{
+        system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: spc::SystemOscillatorOutput::Div1,
         .. Default::default()
     };
     
-    let pc = pc::Pc::init(
+    let spc = spc::Spc::init(
         peripherals.SCG,
         peripherals.SMC,
         peripherals.PMC,
         pc_config
     ).unwrap();
     
-    let mut console = s32k144evb::console::LpuartConsole::init(peripherals.LPUART1, &pc);
+    let mut console = s32k144evb::console::LpuartConsole::init(peripherals.LPUART1, &spc);
 
     writeln!(console, "This is a println").unwrap();
     writeln!(console, "Next a panic will be demonstrated by overflowing an integer").unwrap();

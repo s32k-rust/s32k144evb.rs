@@ -3,7 +3,7 @@ use bit_field::BitField;
 use s32k144;
 use s32k144::can0;
 
-use pc;
+use spc;
 
 pub use embedded_types::can::{
     ID,
@@ -25,19 +25,19 @@ const RX_MAILBOXES: usize = 8;
 
 pub struct Can<'a> {
     register_block: &'a s32k144::can0::RegisterBlock,
-    _pc: &'a pc::Pc<'a>,
+    _spc: &'a spc::Spc<'a>,
 }
 
 impl<'a> Can<'a> {
     pub fn init(can: &'a s32k144::can0::RegisterBlock,
-                pc: &'a pc::Pc<'a>,
+                spc: &'a spc::Spc<'a>,
                 settings: &CanSettings,
     ) -> Result<Self, CanError> {
 
         let source_frequency = {
             match settings.clock_source {
-                ClockSource::Sys => pc.core_freq(),
-                ClockSource::Soscdiv2 => pc.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
+                ClockSource::Sys => spc.core_freq(),
+                ClockSource::Soscdiv2 => spc.soscdiv2_freq().ok_or(CanError::ClockSourceDisabled)?,
             }
         };
                 
@@ -133,7 +133,7 @@ impl<'a> Can<'a> {
         
         return Ok(Can{
             register_block: can,
-            _pc: pc,
+            _spc: spc,
         });
         
     }

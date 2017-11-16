@@ -7,8 +7,11 @@ extern crate s32k144;
 extern crate s32k144evb;
 extern crate embedded_types;
 
+use embedded_types::io::Write;
+
 use s32k144evb::{
     wdog,
+    spc,
 };
 
 fn main() {
@@ -16,14 +19,29 @@ fn main() {
     wdog_settings.enable = false;
     wdog::configure(wdog_settings).unwrap();
 
-    s32k144evb::serial::init();
+    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    
+    let pc_config = spc::Config{
+        system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: spc::SystemOscillatorOutput::Div1,
+        .. Default::default()
+    };
+    
+    let spc = spc::Spc::init(
+        peripherals.SCG,
+        peripherals.SMC,
+        peripherals.PMC,
+        pc_config
+    ).unwrap();
+    
+    let mut console = s32k144evb::console::LpuartConsole::init(peripherals.LPUART1, &spc);
 
-    println!("This is a println");
-    println!("Next a panic will be demonstrated by overflowing an integer");
+    writeln!(console, "This is a println").unwrap();
+    writeln!(console, "Next a panic will be demonstrated by overflowing an integer").unwrap();
     let mut i: u8 = 0;
 
     loop {
-        println!("I count: {}", i);
+        writeln!(console, "I count: {}", i).unwrap();
         i += 1;
     }
 }

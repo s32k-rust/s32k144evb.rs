@@ -15,10 +15,9 @@ pub mod led;
 pub mod wdog;
 pub mod can;
 pub mod lpuart;
+pub mod spc;
 
-#[macro_use]
-#[cfg(feature = "serial")]
-pub mod serial;
+pub mod console;
 
-#[cfg(feature = "itm")]
-mod itm;
+#[cfg(any(feature = "panic-over-itm", feature = "panic-over-serial"))]
+mod panic;

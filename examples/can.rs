@@ -9,13 +9,10 @@ extern crate embedded_types;
 
 use cortex_m::asm;
 
-use s32k144::{
-    SCG,
-};
-
 use s32k144evb::{
     can,
     wdog,
+    spc,
 };
 
 use s32k144evb::can::{
@@ -34,31 +31,28 @@ fn main() {
     wdog_settings.enable = false;
     wdog::configure(wdog_settings);
 
-    s32k144evb::serial::init();
-
     let peripherals = unsafe{ s32k144::Peripherals::all() };
+
+    let spc_config = spc::Config{
+        system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
+        soscdiv2: spc::SystemOscillatorOutput::Div1,
+        .. Default::default()
+    };
+    
+    let spc = spc::Spc::init(
+        peripherals.SCG,
+        peripherals.SMC,
+        peripherals.PMC,
+        spc_config
+    ).unwrap();
     
     let mut can_settings = CanSettings::default();    
-    can_settings.source_frequency = 8000000;
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator
-    let scg = peripherals.SCG;
     let porte = peripherals.PORTE;
     let pcc = peripherals.PCC;
-        
-    scg.sosccfg.modify(|_, w| w
-                       .range()._11()
-                       .hgo()._1()
-                       .erefs()._1()
-    );
-    
-    scg.soscdiv.modify(|_, w| w
-                       .soscdiv2().bits(0b001)
-    );
-    
-    scg.sosccsr.modify(|_, w| w.soscen()._1());
-    
+            
     // Configure the can i/o pins
     pcc.pcc_porte.modify(|_, w| w.cgc()._1());
     porte.pcr4.modify(|_, w| w.mux()._101());
@@ -66,7 +60,7 @@ fn main() {
     
     pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
-    let can = can::Can::init(peripherals.CAN0, &can_settings).unwrap();
+    let can = can::Can::init(peripherals.CAN0, &spc, &can_settings).unwrap();
 
     loop {
 

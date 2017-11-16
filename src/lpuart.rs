@@ -1,22 +1,24 @@
 use s32k144::lpuart0;
 use embedded_types::io::Error as IOError;
 
+use spc;
+
 #[derive(Copy, Clone, Debug)]
 pub enum UartError {
     UnsatisfiableBaud,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct UartSettings {
+pub struct Config {
     pub baudrate: u32,
     pub data_bits: DataBits,
     pub parity: Parity,
     pub stop_bits: StopBits,
 }
 
-impl Default for UartSettings {
+impl Default for Config {
     fn default() -> Self {
-        UartSettings{
+        Config{
             baudrate: 9600,
             data_bits: DataBits::B8,
             stop_bits: StopBits::B1,
@@ -46,51 +48,68 @@ pub enum Parity {
     O,
 }
 
-pub fn configure(lpuart: &lpuart0::RegisterBlock, settings: UartSettings, source_frequency: u32) -> Result<(), UartError> {
-    // disable receiver and transmiter
-    lpuart.ctrl.modify(|_r, w| w
-                       .te().clear_bit()
-                       .re().clear_bit()
-    );
-
-    // TODO: check that divisor is a sensible value
-    let (oversampling_ratio, divisor) = find_decent_div(source_frequency, settings.baudrate)?;
-    let bothedge = oversampling_ratio < 8;
-    
-    lpuart.baud.write(|w| unsafe{ w
-                                  .m10().bit(settings.data_bits == DataBits::B10)
-                                  .sbns().bit(settings.stop_bits == StopBits::B2)
-                                  .bothedge().bit(bothedge)
-                                  .osr().bits(oversampling_ratio-1)
-                                  .sbr().bits(divisor as u16)
-    });
-
-    lpuart.ctrl.write(|w| w
-                      .m7().bit(settings.data_bits == DataBits::B7)
-                      .m().bit(settings.data_bits == DataBits::B9)
-                      .pe().bit(settings.parity != Parity::N)
-                      .pt().bit(settings.parity == Parity::O)
-    );
-
-    lpuart.fifo.write(|w| w
-                      .txfe()._1()
-    );
-    
-    // enable receiver and transmitter 
-    lpuart.ctrl.modify(|_r, w| w
-                       .te().set_bit()
-                       //.re().set_bit()
-    );
-
-    Ok(())
+pub struct Lpuart<'a> {
+    lpuart: &'a lpuart0::RegisterBlock,
+    _spc: &'a spc::Spc<'a>,
+    config: Config,
 }
 
-pub fn transmit(lpuart: &lpuart0::RegisterBlock, data: u8) -> Result<(), IOError>{
-    if lpuart.stat.read().tdre().is_0() {
-        Err(IOError::BufferExhausted)
-    } else {
-        lpuart.data.write(|w| unsafe{w.bits(data as u32)});
-        Ok(())
+impl<'a> Lpuart<'a> {
+    pub fn init(
+        lpuart: &'a lpuart0::RegisterBlock,
+        spc: &'a spc::Spc<'a>,
+        config: Config,
+        source_frequency: u32
+    ) -> Result<Lpuart<'a>, UartError> {
+        // disable receiver and transmiter
+        lpuart.ctrl.modify(|_r, w| w
+                           .te().clear_bit()
+                           .re().clear_bit()
+        );
+        
+        // TODO: check that divisor is a sensible value
+        let (oversampling_ratio, divisor) = find_decent_div(source_frequency, config.baudrate)?;
+        let bothedge = oversampling_ratio < 8;
+        
+        lpuart.baud.write(|w| unsafe{ w
+                                      .m10().bit(config.data_bits == DataBits::B10)
+                                      .sbns().bit(config.stop_bits == StopBits::B2)
+                                      .bothedge().bit(bothedge)
+                                      .osr().bits(oversampling_ratio-1)
+                                      .sbr().bits(divisor as u16)
+        });
+
+        lpuart.ctrl.write(|w| w
+                          .m7().bit(config.data_bits == DataBits::B7)
+                          .m().bit(config.data_bits == DataBits::B9)
+                          .pe().bit(config.parity != Parity::N)
+                          .pt().bit(config.parity == Parity::O)
+        );
+
+        lpuart.fifo.write(|w| w
+                          .txfe()._1()
+        );
+        
+        // enable receiver and transmitter 
+        lpuart.ctrl.modify(|_r, w| w
+                           .te().set_bit()
+                           //.re().set_bit()
+        );
+
+        Ok(Lpuart{
+            lpuart: lpuart,
+            _spc: spc,
+            config: config,
+        })
+    }
+
+    pub fn transmit(&self, data: u8) -> Result<(), IOError>{
+        if self.lpuart.stat.read().tdre().is_0() {
+            Err(IOError::BufferExhausted)
+        } else {
+            self.lpuart.data.write(|w| unsafe{w.bits(data as u32)});
+            Ok(())
+        }
     }
 }
 

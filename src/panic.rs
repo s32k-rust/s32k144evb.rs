@@ -49,6 +49,18 @@ unsafe extern "C" fn panic_fmt(
     };
     
     cortex_m::interrupt::free(|cs| {
+
+        // turn of all other muxes than the one that muxes to the OpenSDA
+        let pcc = s32k144::PCC.borrow(cs);
+        let portc = s32k144::PORTC.borrow(cs);
+        let portd = s32k144::PORTD.borrow(cs);
+        
+        pcc.pcc_portc.modify(|_, w| w.cgc()._1());
+        pcc.pcc_portd.modify(|_, w| w.cgc()._1());
+        
+        portc.pcr7.modify(|_, w| w.mux()._010());
+        portc.pcr9.modify(|_, w| w.mux()._000());
+        portd.pcr14.modify(|_, w| w.mux()._000());
         
         let spc = spc::Spc::init(
             s32k144::SCG.borrow(cs),

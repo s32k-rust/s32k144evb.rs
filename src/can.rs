@@ -191,7 +191,7 @@ impl<'a> Can<'a> {
     
     pub fn receive(&self) -> Result<CanFrame, IOError> {
         for i in TX_MAILBOXES..(TX_MAILBOXES+RX_MAILBOXES) {
-            let new_message = self.register_block.iflag1.read().bits().get_bit(i as u8);
+            let new_message = self.register_block.iflag1.read().bits().get_bit(i);
             if new_message {
                 let (_header, frame) = read_mailbox(self.register_block, i);
                 return Ok(frame);
@@ -532,7 +532,7 @@ fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanF
         for index in 0..data_frame.data().len() as usize {
             can.embedded_ram[start_adress+2 + index/4].modify(|r, w| {
                 let mut bitmask = r.bits();
-                bitmask.set_bits(32-(8*(1+index%4)) as u8..(32-8*(index%4)) as u8, data_frame.data()[index] as u32);
+                bitmask.set_bits(32-(8*(1+index%4))..(32-8*(index%4)), data_frame.data()[index] as u32);
                 unsafe{ w.bits(bitmask) }
             });
         }
@@ -597,7 +597,7 @@ fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, Ca
         let mut frame = embedded_types::can::DataFrame::new(id);
         frame.set_data_length(dlc);
         for i in 0..dlc {
-            frame.data_as_mut()[i] = can.embedded_ram[start_adress + 2 + i/4].read().bits().get_bits((32-8*(1+i%4) as u8)..(32-8*(i%4) as u8)) as u8;
+            frame.data_as_mut()[i] = can.embedded_ram[start_adress + 2 + i/4].read().bits().get_bits((32-8*(1+i%4))..32-8*(i%4)) as u8;
         }
         CanFrame::from(frame)
     };

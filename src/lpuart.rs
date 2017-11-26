@@ -1,5 +1,6 @@
 use s32k144::lpuart0;
 use embedded_types::io::Error as IOError;
+use bit_field::BitField;
 
 use spc;
 
@@ -93,7 +94,7 @@ impl<'a> Lpuart<'a> {
         // enable receiver and transmitter 
         lpuart.ctrl.modify(|_r, w| w
                            .te().set_bit()
-                           //.re().set_bit()
+                           .re().set_bit()
         );
 
         Ok(Lpuart{
@@ -109,6 +110,19 @@ impl<'a> Lpuart<'a> {
         } else {
             self.lpuart.data.write(|w| unsafe{w.bits(data as u32)});
             Ok(())
+        }
+    }
+
+    pub fn receive(&self) -> Result<u8, IOError>{
+        let receive = self.lpuart.data.read();
+        if receive.rxempt().bit() {
+            Err(IOError::BufferExhausted)
+        } else if receive.paritye().bit() {
+            Err(IOError::ErrorDetectionCode)
+        } else if receive.fretsc().bit() {
+            Err(IOError::Other)
+        } else {
+            Ok(receive.bits() as u8)
         }
     }
 }

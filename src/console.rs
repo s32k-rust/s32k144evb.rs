@@ -35,6 +35,26 @@ impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     }
 }
 
+impl<'p> embedded_types::io::Read for LpuartConsole<'p> {
+    fn read_until(&mut self, byte: u8, buf: &mut [u8]) -> embedded_types::io::Result<usize> {
+        let mut index = 0;
+        while index < buf.len() {
+            match self.lpuart.receive() {
+                Ok(b) => {
+                    buf[index] = b;
+                    index += 1;
+                    if b == byte {
+                        return Ok(index);
+                    }
+                },
+                Err(embedded_types::io::Error::BufferExhausted) => (),
+                Err(x) => return Err(x),
+            }
+        }
+        Ok(index)
+    }
+}
+
 /// Allow usage of uart as a Console
 pub struct LpuartConsole<'a> {
     lpuart: lpuart::Lpuart<'a>,

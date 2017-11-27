@@ -333,24 +333,24 @@ impl From<MessageBufferCode> for u8 {
     }
 }
 
-impl From<u8> for MessageBufferCode {
-    fn from(code: u8) -> Self {
+impl MessageBufferCode {
+    fn decode(code: u8) -> Result<Self, ()> {
         match code {
-            0b1000 => MessageBufferCode::Transmit(TransmitBufferState::Inactive),
-            0b1001 => MessageBufferCode::Transmit(TransmitBufferState::Abort),
-            0b1100 => MessageBufferCode::Transmit(TransmitBufferState::DataRemote),
-            0b1110 => MessageBufferCode::Transmit(TransmitBufferState::Tanswer),
-            0b0000 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false}),
-            0b0001 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: true}),
-            0b0100 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false}),
-            0b0101 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: true}),
-            0b0010 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: false}),
-            0b0011 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: true}),
-            0b0110 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: false}),
-            0b0111 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: true}),
-            0b1010 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: false}),
-            0b1011 => MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: true}),
-            _ => panic!("Value: {}, is not a valid MessageBufferCode", code),
+            0b1000 => Ok(MessageBufferCode::Transmit(TransmitBufferState::Inactive)),
+            0b1001 => Ok(MessageBufferCode::Transmit(TransmitBufferState::Abort)),
+            0b1100 => Ok(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)),
+            0b1110 => Ok(MessageBufferCode::Transmit(TransmitBufferState::Tanswer)),
+            0b0000 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false})),
+            0b0001 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: true})),
+            0b0100 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: false})),
+            0b0101 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: true})),
+            0b0010 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: false})),
+            0b0011 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Full, busy: true})),
+            0b0110 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: false})),
+            0b0111 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Overrun, busy: true})),
+            0b1010 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: false})),
+            0b1011 => Ok(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Ranswer, busy: true})),
+            _ => Err(()),
         }
     }
 }
@@ -439,7 +439,7 @@ pub enum CanError {
 
 fn read_mailbox_code(can: &can0::RegisterBlock, mailbox: usize) -> MessageBufferCode {
     let start_adress = mailbox*4;
-    let code = MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8);
+    let code = MessageBufferCode::decode(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8).unwrap();
     // The read might have caused a lock, need to read the timer to unlock all mailboxes just in case.
     let _time = can.timer.read(); 
     code
@@ -448,7 +448,7 @@ fn read_mailbox_code(can: &can0::RegisterBlock, mailbox: usize) -> MessageBuffer
 fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{
     // TODO: this function is untested, test it (it requires mcr.aen() bit set as well)
     let start_adress = mailbox*4;
-    if MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) == MessageBufferCode::Transmit(TransmitBufferState::DataRemote) {
+    if MessageBufferCode::decode(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) == Ok(MessageBufferCode::Transmit(TransmitBufferState::DataRemote)) {
         can.iflag1.write(|w| unsafe{w.bits(1<<mailbox)} );
         can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Abort)) as u32).get_bits(0..32))});
         while can.iflag1.read().bits() & (1<<mailbox) != 0 {}
@@ -473,9 +473,10 @@ fn abort_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> Option<CanFrame>{
 fn inactivate_mailbox(can: &can0::RegisterBlock, mailbox: usize) {
     //TODO: consider clearing interrupt
     let start_adress = mailbox*4;
-    match MessageBufferCode::from(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) {
-        MessageBufferCode::Transmit(_) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Inactive)) as u32).get_bits(0..32))}),
-        MessageBufferCode::Receive(_) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false})) as u32).get_bits(0..32))}),
+    match MessageBufferCode::decode(can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8) {
+        Ok(MessageBufferCode::Transmit(_)) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Transmit(TransmitBufferState::Inactive)) as u32).get_bits(0..32))}),
+        Ok(MessageBufferCode::Receive(_)) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0u32.set_bits(24..28, u8::from(MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Inactive, busy: false})) as u32).get_bits(0..32))}),
+        Err(_) => can.embedded_ram[start_adress].write(|w| unsafe{ w.bits(0)}),
     }
 }
 
@@ -491,7 +492,7 @@ fn write_mailbox(can: &can0::RegisterBlock, header: &MailboxHeader, frame: &CanF
     // Check if the mailbox is ready for a write
     let current_code = can.embedded_ram[start_adress].read().bits().get_bits(24..28) as u8;
 
-    match MessageBufferCode::from(current_code) {
+    match MessageBufferCode::decode(current_code).unwrap() {
         MessageBufferCode::Transmit(TransmitBufferState::DataRemote) => return Err(CanError::BusyMailboxWriteAttempted),
         MessageBufferCode::Transmit(TransmitBufferState::Tanswer) => return Err(CanError::BusyMailboxWriteAttempted),
         MessageBufferCode::Receive(ReceiveBufferCode{state: ReceiveBufferState::Empty, busy: _}) => return Err(CanError::BusyMailboxWriteAttempted),
@@ -572,7 +573,7 @@ fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, Ca
     let mut cs = can.embedded_ram[start_adress].read().bits();
     
     // 2. read untill mail box no longer busy
-    while let MessageBufferCode::Receive(code) = MessageBufferCode::from(cs.get_bits(24..28) as u8) {
+    while let MessageBufferCode::Receive(code) = MessageBufferCode::decode(cs.get_bits(24..28) as u8).unwrap() {
         if code.busy {
             cs = can.embedded_ram[start_adress].read().bits();
         } else {
@@ -607,7 +608,7 @@ fn read_mailbox(can: &can0::RegisterBlock, mailbox: usize) -> (MailboxHeader, Ca
 
     let header = MailboxHeader{
         error_state_indicator: cs.get_bit(29),
-        code: MessageBufferCode::from(cs.get_bits(24..28) as u8),
+        code: MessageBufferCode::decode(cs.get_bits(24..28) as u8).unwrap(),
         time_stamp: cs.get_bits(0..15) as u16,
         priority: priority as u8,
     };

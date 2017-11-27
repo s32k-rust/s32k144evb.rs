@@ -120,6 +120,7 @@ impl<'a> Lpuart<'a> {
         } else if receive.paritye().bit() {
             Err(IOError::ErrorDetectionCode)
         } else if receive.fretsc().bit() {
+            self.lpuart.stat.modify(|_, w| w.fe()._1());
             Err(IOError::Other)
         } else {
             Ok(receive.bits() as u8)

@@ -29,9 +29,12 @@ fn main() {
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
 
-    let mut wdog_settings = wdog::WatchdogSettings::default();
-    wdog_settings.enable = false;
-    let _wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings);
+    let wdog_settings = wdog::WatchdogSettings{
+        //timeout_value: 0xffff,
+        .. Default::default()
+    };
+    let wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings).unwrap();
+    wdog.reset();
     
     let spc_config = spc::Config{
         system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
@@ -74,6 +77,9 @@ fn main() {
             for i in 0..loop_max {
                 if i == 0 {
                     can.transmit(&message.into()).unwrap();           
+                }
+                if i & 1000 == 0 {
+                    wdog.reset();
                 }
             }
         }

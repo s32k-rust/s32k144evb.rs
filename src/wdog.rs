@@ -95,6 +95,10 @@ impl<'a> Watchdog<'a> {
         Ok(watchdog)
     }
 
+    pub fn reset(&self) {
+        cortex_m::interrupt::free(|cs| self.register_block.cnt.write(|w| unsafe{ w.bits(0xB480_A602)}));
+    }
+    
     /// pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> 
     ///
     /// reconfigures the watchdog timer and return Ok(()) or an error.
@@ -179,7 +183,4 @@ impl<'a> Watchdog<'a> {
 }
 
 
-pub fn reset() {
-    unimplemented!();
-}
     

@@ -26,13 +26,13 @@ use embedded_types::can::{
 };
 
 fn main() {
-    
-    let mut wdog_settings = wdog::WatchdogSettings::default();
-    wdog_settings.enable = false;
-    wdog::configure(wdog_settings);
 
     let peripherals = unsafe{ s32k144::Peripherals::all() };
 
+    let mut wdog_settings = wdog::WatchdogSettings::default();
+    wdog_settings.enable = false;
+    let _wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings);
+    
     let spc_config = spc::Config{
         system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
         soscdiv2: spc::SystemOscillatorOutput::Div1,

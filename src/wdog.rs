@@ -1,8 +1,6 @@
 extern crate cortex_m;
 
-use s32k144::{
-    WDOG,
-};
+use s32k144;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WatchdogWindow {
@@ -78,28 +76,38 @@ pub enum WatchdogError {
     ConfigurationFailed,
 }
 
+pub struct Watchdog<'a> {
+    register_block: &'a s32k144::wdog::RegisterBlock,
+}
 
-/// pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> 
-///
-/// configures the watchdog timer and return () or an error.
-///
-/// can be used as an initial configuration within 128 cycles of startup
-/// or to reconfigure if reconfiguring is allowed.
-///
-/// Since this functions needs to wait for the settings to either
-/// change or fail changing, the function can spend significant time
-/// in an interrupt free context
-pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
-    
-    cortex_m::interrupt::free(|cs| {
+impl<'a> Watchdog<'a> {
+    /// Initializes the watchdog
+    ///
+    /// This function needs to be called within 128 cycles of startup or it will fail.
+    pub fn init(
+        wdog: &'a s32k144::wdog::RegisterBlock,
+        settings: WatchdogSettings,
+    ) -> Result<Self, WatchdogError> {
+        let watchdog = Watchdog{
+            register_block: wdog,
+        };
+        watchdog.configure(settings)?;
+        Ok(watchdog)
+    }
+
+    /// pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> 
+    ///
+    /// reconfigures the watchdog timer and return Ok(()) or an error.
+    pub fn configure(&self, settings: WatchdogSettings) -> Result<(), WatchdogError> {
+        
         // TODO: find good values for these constants
         const UNLOCK_TRIES: u32 = 3;
         const UNLOCK_CHECKS: u32 = 5000; 
-        
-        let wdog = WDOG.borrow(cs);
+            
+        let wdog = self.register_block;
 
         let mut unlocked_flag = false;
-        let mut unlocked = |wdog: &WDOG| {
+        let mut unlocked = |wdog: &s32k144::wdog::RegisterBlock| {
             if unlocked_flag {
                 true
             } else {
@@ -107,9 +115,9 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
                 unlocked_flag
             }
         };
-                
-        let unlock = |wdog: &WDOG| wdog.cnt.write(|w| unsafe{ w.bits(0xd928c520) });
-        let under_configuration = |wdog: &WDOG| wdog.cs.read().rcs().is_0();
+            
+        let unlock = |wdog: &s32k144::wdog::RegisterBlock| wdog.cnt.write(|w| unsafe{ w.bits(0xd928c520) });
+        let under_configuration = |wdog: &s32k144::wdog::RegisterBlock| wdog.cs.read().rcs().is_0();
         
         if !unlocked(wdog) && under_configuration(wdog) {
             return Err(WatchdogError::ReconfigurationDisallowed);
@@ -133,43 +141,45 @@ pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> {
                 }
             }
         }
-
+        
         if !unlocked(wdog) {
             return Err(WatchdogError::UnlockFailed);
         }
         
-        apply_settings(settings, wdog);
+        self.apply_settings(settings);
         
         // TODO: write some logic (acceptance test) that detects if the reconfiguration fails
         while under_configuration(wdog) {}
         Ok(())
-    })    
+    }
+
+    fn apply_settings(&self, settings: WatchdogSettings) {
+        let (win_value, win_enabled) = match settings.window {
+            WatchdogWindow::Enabled(x) => (x, true),
+            WatchdogWindow::Disabled => (0x0000, false),
+        };
         
+        unsafe{ self.register_block.toval.write(|w| w.bits(settings.timeout_value as u32)); }
+        unsafe{ self.register_block.win.write(|w|  w.bits(win_value as u32)); }
+        
+        self.register_block.cs.modify(|_, w| w
+                                      .stop().bit(settings.stop_enable)
+                                      .wait().bit(settings.wait_enable)
+                                      .dbg().bit(settings.debug_enable)
+                                      .update().bit(settings.allow_updates)
+                                      .int().bit(settings.interrupt_enable)
+                                      .en().bit(settings.enable)
+                                      .pres().bit(settings.prescaler)
+                                      .cmd32en()._1()
+                                      .win().bit(win_enabled)
+        );
+    }
+    
+
 }
+
 
 pub fn reset() {
     unimplemented!();
 }
     
-fn apply_settings(settings: WatchdogSettings, wdog: &WDOG) {
-    let (win_value, win_enabled) = match settings.window {
-        WatchdogWindow::Enabled(x) => (x, true),
-        WatchdogWindow::Disabled => (0x0000, false),
-    };
-    
-    unsafe{ wdog.toval.write(|w| w.bits(settings.timeout_value as u32)); }
-    unsafe{ wdog.win.write(|w|  w.bits(win_value as u32)); }
-    
-    wdog.cs.modify(|_, w| w
-                   .stop().bit(settings.stop_enable)
-                   .wait().bit(settings.wait_enable)
-                   .dbg().bit(settings.debug_enable)
-                   .update().bit(settings.allow_updates)
-                   .int().bit(settings.interrupt_enable)
-                   .en().bit(settings.enable)
-                   .pres().bit(settings.prescaler)
-                   .cmd32en()._1()
-                   .win().bit(win_enabled)
-    );
-}
-

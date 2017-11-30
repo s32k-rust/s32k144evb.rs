@@ -39,7 +39,7 @@ fn init(p: init::Peripherals, _r: init::Resources) {
 
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
-    wdog::configure(wdog_settings);
+    let _wdog = wdog::Watchdog::init(p.WDOG, wdog_settings);
     
     led::init();
     led::RED.off();

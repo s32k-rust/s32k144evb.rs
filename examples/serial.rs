@@ -16,11 +16,11 @@ use s32k144evb::{
 };
 
 fn main() {
+    let peripherals = unsafe{ s32k144::Peripherals::all() };
+
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
-    wdog::configure(wdog_settings).unwrap();
-
-    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    let _wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings);
     
     let pc_config = spc::Config{
         system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),

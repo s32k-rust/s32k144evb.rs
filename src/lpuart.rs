@@ -89,6 +89,7 @@ impl<'a> Lpuart<'a> {
 
         lpuart.fifo.write(|w| w
                           .txfe()._1()
+                          .rxfe()._1()
         );
         
         // enable receiver and transmitter 

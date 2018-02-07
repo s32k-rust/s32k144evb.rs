@@ -16,11 +16,11 @@ use s32k144evb::{
 };
 
 fn main() {
-    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    let peripherals = s32k144::Peripherals::take().unwrap();
 
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
-    let _wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings);
+    let _wdog = wdog::Watchdog::init(&peripherals.WDOG, wdog_settings);
     
     let pc_config = spc::Config{
         system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
@@ -29,13 +29,24 @@ fn main() {
     };
     
     let spc = spc::Spc::init(
-        peripherals.SCG,
-        peripherals.SMC,
-        peripherals.PMC,
+        &peripherals.SCG,
+        &peripherals.SMC,
+        &peripherals.PMC,
         pc_config
     ).unwrap();
+
+    let pcc = peripherals.PCC;
+    pcc.pcc_lpuart1.modify(|_, w| w.cgc()._0());
+    pcc.pcc_lpuart1.modify(|_, w| w.pcs()._001());
+    pcc.pcc_lpuart1.modify(|_, w| w.cgc()._1());
+    pcc.pcc_portc.modify(|_, w| w.cgc()._1());
     
-    let mut console = s32k144evb::console::LpuartConsole::init(peripherals.LPUART1, &spc);
+    let portc = peripherals.PORTC;
+    portc.pcr6.modify(|_, w| w.mux()._010());
+    portc.pcr7.modify(|_, w| w.mux()._010());
+
+    
+    let mut console = s32k144evb::console::LpuartConsole::init(&peripherals.LPUART1, &spc);
 
     writeln!(console, "Please write something").unwrap();
     let mut buf = [0u8; 64];

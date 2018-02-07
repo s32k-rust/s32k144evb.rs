@@ -68,19 +68,6 @@ impl<'a> LpuartConsole<'a> {
         let mut uart_config = lpuart::Config::default();
         uart_config.baudrate = 115200;
         
-        cortex_m::interrupt::free(|cs| {
-            
-            let pcc = PCC.borrow(cs);
-            pcc.pcc_lpuart1.modify(|_, w| w.cgc()._0());
-            pcc.pcc_lpuart1.modify(|_, w| w.pcs()._001());
-            pcc.pcc_lpuart1.modify(|_, w| w.cgc()._1());
-            pcc.pcc_portc.modify(|_, w| w.cgc()._1());
-            
-            let portc = PORTC.borrow(cs);
-            portc.pcr6.modify(|_, w| w.mux()._010());
-            portc.pcr7.modify(|_, w| w.mux()._010());
-        });
-
         LpuartConsole{
             lpuart: lpuart::Lpuart::init(lpuart, spc, uart_config, 8_000_000).unwrap(),
         }

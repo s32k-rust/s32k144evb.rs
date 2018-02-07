@@ -27,13 +27,14 @@ use embedded_types::can::{
 
 fn main() {
 
-    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    let peripherals = s32k144::Peripherals::take().unwrap();
 
     let wdog_settings = wdog::WatchdogSettings{
         //timeout_value: 0xffff,
+        enable: false,
         .. Default::default()
     };
-    let wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings).unwrap();
+    let wdog = wdog::Watchdog::init(&peripherals.WDOG, wdog_settings).unwrap();
     wdog.reset();
     
     let spc_config = spc::Config{
@@ -43,9 +44,9 @@ fn main() {
     };
     
     let spc = spc::Spc::init(
-        peripherals.SCG,
-        peripherals.SMC,
-        peripherals.PMC,
+        &peripherals.SCG,
+        &peripherals.SMC,
+        &peripherals.PMC,
         spc_config
     ).unwrap();
     
@@ -63,7 +64,7 @@ fn main() {
     
     pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
-    let can = can::Can::init(peripherals.CAN0, &spc, &can_settings).unwrap();
+    let can = can::Can::init(&peripherals.CAN0, &spc, &can_settings).unwrap();
 
     loop {
 

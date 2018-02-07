@@ -49,29 +49,32 @@ unsafe extern "C" fn panic_fmt(
     };
     
     cortex_m::interrupt::free(|cs| {
+        unsafe {
+            let peripherals = s32k144::Peripherals::steal();
 
-        // turn of all other muxes than the one that muxes to the OpenSDA
-        let pcc = s32k144::PCC.borrow(cs);
-        let portc = s32k144::PORTC.borrow(cs);
-        let portd = s32k144::PORTD.borrow(cs);
-        
-        pcc.pcc_portc.modify(|_, w| w.cgc()._1());
-        pcc.pcc_portd.modify(|_, w| w.cgc()._1());
-        
-        portc.pcr7.modify(|_, w| w.mux()._010());
-        portc.pcr9.modify(|_, w| w.mux()._000());
-        portd.pcr14.modify(|_, w| w.mux()._000());
-        
-        let spc = spc::Spc::init(
-            s32k144::SCG.borrow(cs),
-            s32k144::SMC.borrow(cs),
-            s32k144::PMC.borrow(cs),
-            spc_config
-        ).unwrap();
-        
-        let mut serial = console::LpuartConsole::init(s32k144::LPUART1.borrow(cs), &spc);
-
-        writeln!(serial, "Panicked at '{}', {}:{}", msg, file, line).unwrap();
+            // turn of all other muxes than the one that muxes to the OpenSDA
+            let pcc = peripherals.PCC;
+            let portc = peripherals.PORTC;
+            let portd = peripherals.PORTD;
+            
+            pcc.pcc_portc.modify(|_, w| w.cgc()._1());
+            pcc.pcc_portd.modify(|_, w| w.cgc()._1());
+            
+            portc.pcr7.modify(|_, w| w.mux()._010());
+            portc.pcr9.modify(|_, w| w.mux()._000());
+            portd.pcr14.modify(|_, w| w.mux()._000());
+            
+            let spc = spc::Spc::init(
+                &peripherals.SCG,
+                &peripherals.SMC,
+                &peripherals.PMC,
+                spc_config
+            ).unwrap();
+            
+            let mut serial = console::LpuartConsole::init(&peripherals.LPUART1, &spc);
+            
+            writeln!(serial, "Panicked at '{}', {}:{}", msg, file, line).unwrap();
+        }
     });
                               
     // If running in debug mode, stop. If not, abort.

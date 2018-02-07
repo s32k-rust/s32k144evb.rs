@@ -6,8 +6,6 @@ extern crate cortex_m;
 extern crate s32k144evb;
 extern crate s32k144;
 
-use cortex_m::asm;
-
 use s32k144evb::{
     led,
     wdog,
@@ -16,39 +14,38 @@ use s32k144evb::{
 
 fn main() {
 
-    let peripherals = unsafe{ s32k144::Peripherals::all() };
+    let peripherals = s32k144::Peripherals::take().unwrap();
     
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
-    let _wdog = wdog::Watchdog::init(peripherals.WDOG, wdog_settings);
+    let _wdog = wdog::Watchdog::init(&peripherals.WDOG, wdog_settings);
     
-    led::init();
-    led::RED.off();
-    led::GREEN.off();
-    led::BLUE.off();
+    //TODO: make sure pcc is configured correctly
+    
+    peripherals.PCC.pcc_portd.modify(|_, w| w.cgc()._1());
+    
+    
+     
+
+    
+    let led = led::RgbLed::init(&peripherals.PTD, &peripherals.PORTD);
 
     loop {
         
         let loop_max = 3000;
+        
         for i in 0..8*loop_max {
         
-           
-            if (i / loop_max) % 2 != 0 {
-                led::RED.on();
-            } else {
-                led::RED.off();
-            }
-            
-            if (i / 2 / loop_max) % 2 != 0 {
-                led::BLUE.on();
-            } else {
-                led::BLUE.off();
-            }
-            
-            if (i / 4 / loop_max) % 2 != 0{
-                led::GREEN.on();
-            } else {
-                led::GREEN.off();
+            match i/loop_max {
+                0 => led.set(false, false, false),
+                1 => led.set(false, false, true),
+                2 => led.set(false, true, false),
+                3 => led.set(false, true, true),
+                4 => led.set(true, false, false),
+                5 => led.set(true, false, true),
+                6 => led.set(true, true, false),
+                7 => led.set(true, true, true),
+                _ => unreachable!(),
             }
             
         

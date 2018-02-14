@@ -16,6 +16,7 @@ pub mod wdog;
 pub mod can;
 pub mod lpuart;
 pub mod spc;
+pub mod pcc;
 
 pub mod console;
 

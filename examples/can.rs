@@ -15,6 +15,11 @@ use s32k144evb::{
     spc,
 };
 
+use s32k144evb::pcc::{
+    self,
+    Pcc,
+};
+
 use s32k144evb::can::{
     ID,
     CanSettings,
@@ -54,15 +59,15 @@ fn main() {
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator
-    let porte = peripherals.PORTE;
-    let pcc = peripherals.PCC;
-            
+    let pcc = Pcc::init(&peripherals.PCC);
+    let _pcc_can0 = pcc.enable_can0().unwrap();
+    let _pcc_porte = pcc.enable_porte().unwrap();
+
     // Configure the can i/o pins
-    pcc.pcc_porte.modify(|_, w| w.cgc()._1());
+    let porte = peripherals.PORTE;
     porte.pcr4.modify(|_, w| w.mux()._101());
     porte.pcr5.modify(|_, w| w.mux()._101());
     
-    pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
     
     let can = can::Can::init(&peripherals.CAN0, &spc, &can_settings).unwrap();
 

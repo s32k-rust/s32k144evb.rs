@@ -15,6 +15,11 @@ use s32k144evb::{
     spc,
 };
 
+use s32k144evb::pcc::{
+    self,
+    Pcc,
+};
+
 fn main() {
     let peripherals = s32k144::Peripherals::take().unwrap();
 
@@ -34,12 +39,11 @@ fn main() {
         &peripherals.PMC,
         pc_config
     ).unwrap();
+    
 
-    let pcc = peripherals.PCC;
-    pcc.pcc_lpuart1.modify(|_, w| w.cgc()._0());
-    pcc.pcc_lpuart1.modify(|_, w| w.pcs()._001());
-    pcc.pcc_lpuart1.modify(|_, w| w.cgc()._1());
-    pcc.pcc_portc.modify(|_, w| w.cgc()._1());
+    let pcc = Pcc::init(&peripherals.PCC);
+    let _pcc_lpuart1 = pcc.enable_lpuart1(pcc::ClockSource::Soscdiv2).unwrap();
+    let _pcc_portc = pcc.enable_portc().unwrap();
     
     let portc = peripherals.PORTC;
     portc.pcr6.modify(|_, w| w.mux()._010());

@@ -11,6 +11,8 @@ use s32k144evb::{
     wdog,
 };
 
+use s32k144evb::pcc::Pcc;
+
 
 fn main() {
 
@@ -19,16 +21,15 @@ fn main() {
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
     let _wdog = wdog::Watchdog::init(&peripherals.WDOG, wdog_settings);
-    
-    //TODO: make sure pcc is configured correctly
-    
-    peripherals.PCC.pcc_portd.modify(|_, w| w.cgc()._1());
-    
-    
-     
 
+    let pcc = Pcc::init(&peripherals.PCC);
+    let pcc_portd = pcc.enable_portd().unwrap();
     
-    let led = led::RgbLed::init(&peripherals.PTD, &peripherals.PORTD);
+    let led = led::RgbLed::init(
+        &peripherals.PTD,
+        &peripherals.PORTD,
+        &pcc_portd,
+    );
 
     loop {
         

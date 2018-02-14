@@ -18,7 +18,7 @@ version = "0.3.6"
 default-features = false
 
 [dependencies.s32k144]
-version = "0.7"
+version = "0.9"
 features = ["rt"]
 
 [dev-dependencies]

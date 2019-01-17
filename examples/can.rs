@@ -3,59 +3,46 @@
 
 #[macro_use]
 extern crate cortex_m;
+extern crate embedded_types;
 extern crate s32k144;
 extern crate s32k144evb;
-extern crate embedded_types;
 
 use cortex_m::asm;
 
-use s32k144evb::{
-    can,
-    wdog,
-    spc,
-};
+use s32k144evb::{can, spc, wdog};
 
-use s32k144evb::pcc::{
-    self,
-    Pcc,
-};
+use s32k144evb::pcc::{self, Pcc};
 
-use s32k144evb::can::{
-    ID,
-    CanSettings,
-};
+use s32k144evb::can::{CanSettings, ID};
 
-use embedded_types::can::{
-    DataFrame,
-    BaseID,
-};
+use embedded_types::can::{BaseID, DataFrame};
 
 fn main() {
-
     let peripherals = s32k144::Peripherals::take().unwrap();
 
-    let wdog_settings = wdog::WatchdogSettings{
+    let wdog_settings = wdog::WatchdogSettings {
         //timeout_value: 0xffff,
         enable: false,
-        .. Default::default()
+        ..Default::default()
     };
     let wdog = wdog::Watchdog::init(&peripherals.WDOG, wdog_settings).unwrap();
     wdog.reset();
-    
-    let spc_config = spc::Config{
+
+    let spc_config = spc::Config {
         system_oscillator: spc::SystemOscillatorInput::Crystal(8_000_000),
         soscdiv2: spc::SystemOscillatorOutput::Div1,
-        .. Default::default()
+        ..Default::default()
     };
-    
+
     let spc = spc::Spc::init(
         &peripherals.SCG,
         &peripherals.SMC,
         &peripherals.PMC,
-        spc_config
-    ).unwrap();
-    
-    let mut can_settings = CanSettings::default();    
+        spc_config,
+    )
+    .unwrap();
+
+    let mut can_settings = CanSettings::default();
     can_settings.self_reception = false;
 
     // Enable and configure the system oscillator
@@ -67,12 +54,10 @@ fn main() {
     let porte = peripherals.PORTE;
     porte.pcr4.modify(|_, w| w.mux()._101());
     porte.pcr5.modify(|_, w| w.mux()._101());
-    
-    
+
     let can = can::Can::init(&peripherals.CAN0, &spc, &can_settings).unwrap();
 
     loop {
-
         let loop_max = 100000;
         for n in 0..256 {
             let mut message = DataFrame::new(ID::BaseID(BaseID::new(n as u16)));
@@ -82,7 +67,7 @@ fn main() {
             }
             for i in 0..loop_max {
                 if i == 0 {
-                    can.transmit(&message.into()).unwrap();           
+                    can.transmit(&message.into()).unwrap();
                 }
                 if i & 1000 == 0 {
                     wdog.reset();

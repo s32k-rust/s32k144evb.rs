@@ -3,20 +3,16 @@
 #![no_std]
 
 extern crate cortex_m;
+extern crate cortex_m_rtfm as rtfm;
 extern crate s32k144;
 extern crate s32k144evb;
-extern crate cortex_m_rtfm as rtfm;
 
 use cortex_m::peripheral::SystClkSource;
 
 use rtfm::{app, Threshold};
 
-use s32k144evb::{
-    led,
-    wdog,
-};
 use s32k144::Interrupt;
-
+use s32k144evb::{led, wdog};
 
 app! {
     device: s32k144,
@@ -25,7 +21,7 @@ app! {
         static ON: bool = false;
         static COUNT: u32 = 0;
     },
-    
+
     tasks: {
         SYS_TICK: {
             path: toggle,
@@ -34,13 +30,11 @@ app! {
     },
 }
 
-
 fn init(p: init::Peripherals, _r: init::Resources) {
-
     let mut wdog_settings = wdog::WatchdogSettings::default();
     wdog_settings.enable = false;
     let _wdog = wdog::Watchdog::init(p.WDOG, wdog_settings);
-    
+
     led::init();
     led::RED.off();
     led::GREEN.off();
@@ -62,7 +56,8 @@ fn idle() -> ! {
 fn toggle(_t: &mut Threshold, r: SYS_TICK::Resources) {
     **r.COUNT += 1;
 
-    if **r.COUNT >= 100 { //1s
+    if **r.COUNT >= 100 {
+        //1s
         **r.COUNT = 0;
         **r.ON = !**r.ON;
         if **r.ON {

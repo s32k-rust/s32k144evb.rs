@@ -16,9 +16,9 @@ pub struct Config {
     /// Set the power mode and system clock source
     pub mode: Mode,
 
-    /// Clock divider for `CORE_CLK` and `SYS_CLK`.    
+    /// Clock divider for `CORE_CLK` and `SYS_CLK`.
     pub div_core: DivCore,
-    
+
     /// Set the configuration of XTAL and EXTAL pins.
     pub system_oscillator: SystemOscillatorInput,
 
@@ -101,13 +101,13 @@ impl Default for Mode {
 pub enum RunMode {
     /// System Oscillator Clock
     SOSC,
-    
+
     /// Slow Internal Reference Clock
     SIRC,
 
     /// Fast internal Reference Clock
     FIRC,
-    
+
     /// Sys PLL
     SPLL,
 }
@@ -117,7 +117,7 @@ pub enum RunMode {
 pub enum HighSpeedMode {
     /// Fast internal Reference Clock
     FIRC,
-    
+
     /// Sys PLL
     SPLL,
 }
@@ -184,7 +184,6 @@ impl From<DivCore> for u32 {
     }
 }
 
-
 /// Clock divider options for system oscillator.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SystemOscillatorOutput {
@@ -193,22 +192,22 @@ pub enum SystemOscillatorOutput {
 
     /// Divide by 1
     Div1 = 1,
-    
+
     /// Divide by 2
     Div2 = 2,
-    
+
     /// Divide by 4
     Div4 = 3,
-    
+
     /// Divide by 8
     Div8 = 4,
-    
+
     /// Divide by 16
     Div16 = 5,
-    
+
     /// Divide by 32
     Div32 = 6,
-    
+
     /// Divide by 64
     Div64 = 7,
 }
@@ -257,85 +256,79 @@ impl<'a> Spc<'a> {
         scg: &'a s32k144::scg::RegisterBlock,
         smc: &'a s32k144::smc::RegisterBlock,
         pmc: &'a s32k144::pmc::RegisterBlock,
-        config: Config
+        config: Config,
     ) -> Result<Self, Error> {
-      
         match config.system_oscillator {
             SystemOscillatorInput::None => {
                 scg.sosccsr.modify(|_, w| w.soscen()._0());
-            },
+            }
             SystemOscillatorInput::Crystal(f) => {
-                scg.sosccfg.modify(|_, w| w
-                                   .erefs()._1()
-                                   .hgo()._1()
-                ); 
- 
+                scg.sosccfg.modify(|_, w| w.erefs()._1().hgo()._1());
+
                 if f >= 8_000_000 {
                     scg.sosccfg.modify(|_, w| w.range()._11());
                 } else {
                     scg.sosccfg.modify(|_, w| w.range()._10());
                 }
                 scg.sosccsr.modify(|_, w| w.soscen()._1());
-
-            },
+            }
             SystemOscillatorInput::Reference(_) => {
                 scg.sosccsr.modify(|_, w| w.soscen()._1());
                 scg.sosccfg.modify(|_, w| w.erefs()._1());
-            },
+            }
         }
 
         // TODO: wait untill system oscillator is valid if configured
-        
-        scg.soscdiv.modify(|_, w| w.soscdiv1().bits(config.soscdiv1.into()));
-        scg.soscdiv.modify(|_, w| w.soscdiv2().bits(config.soscdiv2.into()));
+
+        scg.soscdiv
+            .modify(|_, w| w.soscdiv1().bits(config.soscdiv1.into()));
+        scg.soscdiv
+            .modify(|_, w| w.soscdiv2().bits(config.soscdiv2.into()));
 
         // Allowing a transition into HSRUN or VLPR
-        smc.pmprot.write(|w| w
-                         .ahsrun()._1()
-                         .avlp()._1()
-        );
+        smc.pmprot.write(|w| w.ahsrun()._1().avlp()._1());
 
-        // When configuring this, we should already have configured the source and make sure it's valid.      
+        // When configuring this, we should already have configured the source and make sure it's valid.
         match config.mode {
             Mode::Run(mode) => {
                 // Set the dividers
-                scg.rccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core) - 1));
+                scg.rccr
+                    .modify(|_, w| w.divcore().bits(u8::from(config.div_core) - 1));
                 match mode {
                     RunMode::SOSC => {
                         if let SystemOscillatorInput::None = config.system_oscillator {
-                            return Err(Error::NoSystemOscillator)
+                            return Err(Error::NoSystemOscillator);
                         }
                         scg.rccr.modify(|_, w| w.scs()._0001());
-                    },
+                    }
                     RunMode::SIRC => {
                         unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
                         // scg.rccr.modify(|_, w| w.scs()._0010());
-                    },
-                    RunMode::FIRC => {
-                        scg.rccr.modify(|_, w| w.scs()._0011())
-                    },
+                    }
+                    RunMode::FIRC => scg.rccr.modify(|_, w| w.scs()._0011()),
                     RunMode::SPLL => {
                         unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
                         // scg.rccr.modify(|_, w| w.scs()._0110())
-                    },
+                    }
                 }
                 // transition into run mode
                 smc.pmctrl.modify(|_, w| w.runm()._00());
                 while smc.pmstat.read().pmstat().bits() != 0000_001 {}
-            },
+            }
             Mode::HighSpeed(_mode) => {
                 // Set the dividers
-                scg.hccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
+                scg.hccr
+                    .modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 unimplemented!("High speed more is not supported yet");
-            },
+            }
             Mode::VeryLowPower(_mode) => {
                 // Set the dividers
-                scg.vccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
+                scg.vccr
+                    .modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 unimplemented!("Very low power mode is not supported yet");
-            },
+            }
         }
-        
-        
+
         Ok(Spc {
             scg: scg,
             smc: smc,
@@ -352,10 +345,10 @@ impl<'a> Spc<'a> {
             oscillator_output => {
                 let div = 1 << (usize::from(oscillator_output) - 1);
                 Some(freq / div)
-            },
+            }
         }
     }
-    
+
     /// Return the frequency of socdiv2 clock if running
     pub fn soscdiv2_freq(&self) -> Option<u32> {
         let freq = self.config.system_oscillator.clock_frequency()?;
@@ -364,37 +357,32 @@ impl<'a> Spc<'a> {
             oscillator_output => {
                 let div = 1 << (usize::from(oscillator_output) - 1);
                 Some(freq / div)
-            },
-        }       
+            }
+        }
     }
-    
+
     /// Return the frequency of `CORE_CLK` in MHz
     pub fn core_freq(&self) -> u32 {
         match self.config.mode {
-            Mode::Run(mode) => {
-                match mode {
-                    RunMode::SOSC => {
-                        let freq = self.config.system_oscillator.clock_frequency().unwrap();
-                        freq / u32::from(self.config.div_core)
-                    },
-                    RunMode::SIRC => {
-                        unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
-                    },
-                    RunMode::FIRC => {
-                        48_000_000 / u32::from(self.config.div_core)
-                    },
-                    RunMode::SPLL => {
-                        unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
-                    },
+            Mode::Run(mode) => match mode {
+                RunMode::SOSC => {
+                    let freq = self.config.system_oscillator.clock_frequency().unwrap();
+                    freq / u32::from(self.config.div_core)
+                }
+                RunMode::SIRC => {
+                    unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
+                }
+                RunMode::FIRC => 48_000_000 / u32::from(self.config.div_core),
+                RunMode::SPLL => {
+                    unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
                 }
             },
             Mode::HighSpeed(_mode) => {
                 unimplemented!("High speed more is not supported yet");
-            },
+            }
             Mode::VeryLowPower(_mode) => {
                 unimplemented!("Very low power mode is not supported yet");
-            },
+            }
         }
     }
 }
-

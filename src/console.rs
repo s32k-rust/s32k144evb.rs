@@ -5,9 +5,9 @@
 //!  - ITM
 // TODO: implement and test ITM
 
-use s32k144;
 use embedded_types;
 use lpuart;
+use s32k144;
 use spc;
 
 impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
@@ -34,7 +34,7 @@ impl<'p> embedded_types::io::Read for LpuartConsole<'p> {
                     if b == byte {
                         return Ok(index);
                     }
-                },
+                }
                 Err(embedded_types::io::Error::BufferExhausted) => (),
                 Err(x) => return Err(x),
             }
@@ -49,17 +49,12 @@ pub struct LpuartConsole<'a> {
 }
 
 impl<'a> LpuartConsole<'a> {
-    pub fn init(
-        lpuart: &'a s32k144::lpuart0::RegisterBlock,
-        spc: &'a spc::Spc<'a>,
-    ) -> Self{
+    pub fn init(lpuart: &'a s32k144::lpuart0::RegisterBlock, spc: &'a spc::Spc<'a>) -> Self {
         let mut uart_config = lpuart::Config::default();
         uart_config.baudrate = 115200;
-        
-        LpuartConsole{
+
+        LpuartConsole {
             lpuart: lpuart::Lpuart::init(lpuart, spc, uart_config, 8_000_000).unwrap(),
         }
     }
 }
-
-

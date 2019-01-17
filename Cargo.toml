@@ -1,5 +1,5 @@
 [package]
-authors = ["Kjetil Kjeka <kjetilkjeka@gmail.com>"]
+authors = ["Kjetil Kjeka <kjetilkjeka@gmail.com>", "Tmplt <tmplt@dragons.rocks>"]
 categories = ["embedded", "no-std", "hardware-support"]
 repository = "https://github.com/kjetilkjeka/s32k144evb.rs"
 description = "Board support crate for s32k144evb"
@@ -12,6 +12,7 @@ version = "0.6.1"
 cortex-m = "0.5.8"
 bit_field = "0.9.0"
 embedded_types = "0.3.2"
+panic-halt = "0.2.0"
 
 [dependencies.cortex-m-rt]
 version = "0.6.7"
@@ -27,7 +28,6 @@ cortex-m-rtfm = "0.4.0"
 [profile.dev]
 opt-level = 0
 debug = true
-lto = true
 
 [profile.release]
 debug = true

@@ -1,23 +1,24 @@
-#![feature(used)]
+#![no_main]
 #![no_std]
 
-#[macro_use]
-extern crate cortex_m;
+extern crate cortex_m_rt;
 extern crate embedded_types;
+extern crate panic_halt;
 extern crate s32k144;
 extern crate s32k144evb;
 
-use cortex_m::asm;
+use cortex_m_rt::entry;
 
 use s32k144evb::{can, spc, wdog};
 
-use s32k144evb::pcc::{self, Pcc};
+use s32k144evb::pcc::Pcc;
 
 use s32k144evb::can::{CanSettings, ID};
 
 use embedded_types::can::{BaseID, DataFrame};
 
-fn main() {
+#[entry]
+fn main() -> ! {
     let peripherals = s32k144::Peripherals::take().unwrap();
 
     let wdog_settings = wdog::WatchdogSettings {

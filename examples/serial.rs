@@ -1,11 +1,13 @@
-#![feature(used)]
+#![no_main]
 #![no_std]
 
-extern crate cortex_m;
-extern crate s32k144;
-#[macro_use]
-extern crate s32k144evb;
+extern crate cortex_m_rt;
 extern crate embedded_types;
+extern crate panic_halt;
+extern crate s32k144;
+extern crate s32k144evb;
+
+use cortex_m_rt::entry;
 
 use embedded_types::io::Read;
 use embedded_types::io::Write;
@@ -14,7 +16,8 @@ use s32k144evb::{spc, wdog};
 
 use s32k144evb::pcc::{self, Pcc};
 
-fn main() {
+#[entry]
+fn main() -> ! {
     let peripherals = s32k144::Peripherals::take().unwrap();
 
     let mut wdog_settings = wdog::WatchdogSettings::default();

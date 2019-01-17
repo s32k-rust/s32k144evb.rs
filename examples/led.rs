@@ -1,16 +1,19 @@
-#![feature(used)]
+#![no_main]
 #![no_std]
 
-#[macro_use]
-extern crate cortex_m;
+extern crate cortex_m_rt;
+extern crate panic_halt;
 extern crate s32k144;
 extern crate s32k144evb;
+
+use cortex_m_rt::entry;
 
 use s32k144evb::{led, wdog};
 
 use s32k144evb::pcc::Pcc;
 
-fn main() {
+#[entry]
+fn main() -> ! {
     let peripherals = s32k144::Peripherals::take().unwrap();
 
     let mut wdog_settings = wdog::WatchdogSettings::default();

@@ -6,6 +6,8 @@
 //! - SMC (System Mode Controller)
 //! - PMC (Power Management Controller)
 
+#![allow(dead_code)]
+
 use s32k144;
 
 /// Configurations for the System Clock Generator
@@ -307,21 +309,21 @@ impl<'a> Spc<'a> {
                     },
                     RunMode::SIRC => {
                         unimplemented!("Mode::Run(RunMode::SIRC) is is not supported yet");
-                        scg.rccr.modify(|_, w| w.scs()._0010());
+                        // scg.rccr.modify(|_, w| w.scs()._0010());
                     },
                     RunMode::FIRC => {
                         scg.rccr.modify(|_, w| w.scs()._0011())
                     },
                     RunMode::SPLL => {
                         unimplemented!("Mode::Run(RunMode::SPLL) is is not supported yet");
-                        scg.rccr.modify(|_, w| w.scs()._0110())
+                        // scg.rccr.modify(|_, w| w.scs()._0110())
                     },
                 }
                 // transition into run mode
                 smc.pmctrl.modify(|_, w| w.runm()._00());
                 while smc.pmstat.read().pmstat().bits() != 0000_001 {}
             },
-            Mode::HighSpeed(mode) => {
+            Mode::HighSpeed(_mode) => {
                 // Set the dividers
                 scg.hccr.modify(|_, w| w.divcore().bits(u8::from(config.div_core)));
                 unimplemented!("High speed more is not supported yet");
@@ -386,7 +388,7 @@ impl<'a> Spc<'a> {
                     },
                 }
             },
-            Mode::HighSpeed(mode) => {
+            Mode::HighSpeed(_mode) => {
                 unimplemented!("High speed more is not supported yet");
             },
             Mode::VeryLowPower(_mode) => {

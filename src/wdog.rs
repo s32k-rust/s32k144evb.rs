@@ -96,7 +96,7 @@ impl<'a> Watchdog<'a> {
     }
 
     pub fn reset(&self) {
-        cortex_m::interrupt::free(|cs| self.register_block.cnt.write(|w| unsafe{ w.bits(0xB480_A602)}));
+        cortex_m::interrupt::free(|_cs| self.register_block.cnt.write(|w| unsafe{ w.bits(0xB480_A602)}));
     }
     
     /// pub fn configure(settings: WatchdogSettings) -> Result<(), WatchdogError> 

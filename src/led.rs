@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate cortex_m;
 
 use s32k144;

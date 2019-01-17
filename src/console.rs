@@ -5,20 +5,8 @@
 //!  - ITM
 // TODO: implement and test ITM
 
-use core::fmt;
-
-use cortex_m;
-
 use s32k144;
-use s32k144::LPUART1;
-use s32k144::PCC;
-use s32k144::PORTC;
-use s32k144::SCG;
-use s32k144::lpuart0;
-
 use embedded_types;
-use embedded_types::io::Write;
-
 use lpuart;
 use spc;
 

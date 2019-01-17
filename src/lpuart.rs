@@ -1,6 +1,7 @@
+#![allow(dead_code)]
+
 use s32k144::lpuart0;
 use embedded_types::io::Error as IOError;
-use bit_field::BitField;
 
 use spc;
 

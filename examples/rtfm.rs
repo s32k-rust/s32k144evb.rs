@@ -1,69 +1,71 @@
-#![feature(used)]
-#![feature(proc_macro)]
+//! Periodical toggling of the green LED using RTFM.
+//!
+//! s32k144evb::led::RgbLed cannot safely be shared yet, hence the unsafe code.
+
+#![no_main]
 #![no_std]
 
 extern crate cortex_m;
-extern crate cortex_m_rtfm as rtfm;
+extern crate panic_halt;
 extern crate s32k144;
 extern crate s32k144evb;
 
-use cortex_m::peripheral::SystClkSource;
-
-use rtfm::{app, Threshold};
-
 use s32k144::Interrupt;
-use s32k144evb::{led, wdog};
 
-app! {
-    device: s32k144,
+use rtfm::{app, Instant};
 
-    resources: {
-        static ON: bool = false;
-        static COUNT: u32 = 0;
-    },
+use s32k144evb::{led, pcc, wdog};
 
-    tasks: {
-        SYS_TICK: {
-            path: toggle,
-            resources: [ON, COUNT],
-        },
-    },
-}
+const PERIOD: u32 = 16_000_000;
 
-fn init(p: init::Peripherals, _r: init::Resources) {
-    let mut wdog_settings = wdog::WatchdogSettings::default();
-    wdog_settings.enable = false;
-    let _wdog = wdog::Watchdog::init(p.WDOG, wdog_settings);
+#[app(device = s32k144)]
+const APP: () = {
+    // Resources
+    static mut ON: bool = false;
+    static mut PTD: s32k144::PTD = ();
 
-    led::init();
-    led::RED.off();
-    led::GREEN.off();
-    led::BLUE.off();
+    #[init(schedule = [toggle])]
+    fn init() {
+        let mut wdog_settings = wdog::WatchdogSettings::default();
+        wdog_settings.enable = false;
+        let _wdog = wdog::Watchdog::init(&device.WDOG, wdog_settings);
 
-    p.SYST.set_clock_source(SystClkSource::Core);
-    p.SYST.set_reload(400_000); // Frequency 100Hz
-    p.SYST.enable_interrupt();
-    p.SYST.enable_counter();
-}
+        let pcc = pcc::Pcc::init(&device.PCC);
+        let pcc_portd = pcc.enable_portd().unwrap();
 
-fn idle() -> ! {
-    // Sleep
-    loop {
-        rtfm::wfi();
+        let led = led::RgbLed::init(&device.PTD, &device.PORTD, &pcc_portd);
+        led.set(false, false, false);
+
+        schedule.toggle(Instant::now() + PERIOD.cycles()).unwrap();
+
+        PTD = device.PTD;
     }
-}
 
-fn toggle(_t: &mut Threshold, r: SYS_TICK::Resources) {
-    **r.COUNT += 1;
-
-    if **r.COUNT >= 100 {
-        //1s
-        **r.COUNT = 0;
-        **r.ON = !**r.ON;
-        if **r.ON {
-            led::GREEN.on();
-        } else {
-            led::GREEN.off();
+    #[idle]
+    fn idle() -> ! {
+        // Sleep
+        loop {
+            rtfm::pend(Interrupt::DMA0);
         }
     }
-}
+
+    #[task(resources = [ON, PTD], schedule = [toggle])]
+    fn toggle() {
+        let r = resources;
+
+        if *r.ON {
+            r.PTD.pcor.write(|w| unsafe { w.ptco().bits(1 << 16) });
+        } else {
+            r.PTD.psor.write(|w| unsafe { w.ptso().bits(1 << 16) });
+        }
+
+        *r.ON = !(*r.ON);
+
+        schedule.toggle(scheduled + PERIOD.cycles()).unwrap();
+    }
+
+    // Interrupt handlers used to dispatch software tasks
+    extern "C" {
+        fn DMA0();
+    }
+};

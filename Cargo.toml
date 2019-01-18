@@ -36,5 +36,4 @@ lto = true
 default = ["panic-over-serial"]
 itm = []
 panic-over-itm = ["itm"]
-#abort-on-panic = ["cortex-m-rt/abort-on-panic"]
 panic-over-serial = []

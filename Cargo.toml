@@ -7,6 +7,7 @@ keywords = ["arm", "cortex-m", "s32k144", "template"]
 license = "MIT OR Apache-2.0"
 name = "s32k144evb"
 version = "0.6.1"
+edition = "2018"
 
 [dependencies]
 cortex-m = "0.5.8"
@@ -37,19 +38,3 @@ itm = []
 panic-over-itm = ["itm"]
 #abort-on-panic = ["cortex-m-rt/abort-on-panic"]
 panic-over-serial = []
-
-[[example]]
-name = "rtfm"
-edition = "2018"
-
-[[example]]
-name = "can"
-edition = "2015"
-
-[[example]]
-name = "led"
-edition = "2015"
-
-[[example]]
-name = "serial"
-edition = "2015"

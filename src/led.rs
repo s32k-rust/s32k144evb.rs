@@ -2,7 +2,7 @@
 
 extern crate cortex_m;
 
-use pcc;
+use crate::pcc;
 use s32k144;
 
 pub struct RgbLed<'a> {

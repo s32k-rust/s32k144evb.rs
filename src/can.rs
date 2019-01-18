@@ -3,7 +3,7 @@ use bit_field::BitField;
 use s32k144;
 use s32k144::can0;
 
-use spc;
+use crate::spc;
 
 pub use embedded_types::can::{CanFrame, ID};
 

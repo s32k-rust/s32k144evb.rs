@@ -3,7 +3,7 @@
 use embedded_types::io::Error as IOError;
 use s32k144::lpuart0;
 
-use spc;
+use crate::spc;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UartError {

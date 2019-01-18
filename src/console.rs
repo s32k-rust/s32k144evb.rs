@@ -5,10 +5,10 @@
 //!  - ITM
 // TODO: implement and test ITM
 
+use crate::lpuart;
+use crate::spc;
 use embedded_types;
-use lpuart;
 use s32k144;
-use spc;
 
 impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     fn write(&mut self, buf: &[u8]) -> embedded_types::io::Result<usize> {

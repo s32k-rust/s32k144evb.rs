@@ -1,9 +1,9 @@
-use console;
+use crate::console;
+use crate::spc;
 use core::fmt;
 use cortex_m;
 use embedded_types::io::Write;
 use s32k144;
-use spc;
 
 #[cfg(feature = "panic-over-itm")]
 #[lang = "panic_fmt"]

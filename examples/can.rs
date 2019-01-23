@@ -3,7 +3,6 @@
 
 extern crate cortex_m_rt;
 extern crate embedded_types;
-extern crate panic_halt;
 extern crate s32k144;
 extern crate s32k144evb;
 

@@ -6,7 +6,6 @@
 #![no_std]
 
 extern crate cortex_m;
-extern crate panic_halt;
 extern crate s32k144;
 extern crate s32k144evb;
 

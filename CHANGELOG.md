@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+### Changed
+### Removed
+
+## [0.7.0] - 2018-02-10
+### Added
  - SPC SW module to handle Power and Clocking HW modules (SCG, SMC and PMC but not PCC).
  - Reset function for watchdog timer.
 ### Changed

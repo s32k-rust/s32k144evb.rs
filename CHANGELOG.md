@@ -14,4 +14,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - CAN MessageBufferCode is converted with `decode` instead of `from` since the conversion is fallible
  - Use FIFO buffer when receiving LPUART
  - Updated s32k144 version
+ - Ported crate to stable release channel, Rust edition 2018
+ - Removed deprecated default feature `abort-on-panic` from `cortex-m-rt`; use `extern crate panic_halt;` or use a panic handler in `src/panic.rs` (default: `panic-over-serial`)
 ### Removed

@@ -63,20 +63,18 @@ pub struct Pcc<'a> {
 
 impl<'a> Pcc<'a> {
     pub fn init(pcc: &'a s32k144::pcc::RegisterBlock) -> Self {
-        Pcc{
-            pcc: pcc,
-        }
+        Pcc { pcc: pcc }
     }
 
     pub fn enable_portc(&self) -> Result<PortC, Error> {
         let reg_value = self.pcc.pcc_portc.read();
         if reg_value.pr().is_0() {
             Err(Error::RegisterNotPresent)
-        } else if reg_value.cgc().is_1(){
+        } else if reg_value.cgc().is_1() {
             Err(Error::AlreadyEnabled)
         } else {
             self.pcc.pcc_portc.modify(|_, w| w.cgc()._1());
-            Ok(PortC{pcc: self.pcc})
+            Ok(PortC { pcc: self.pcc })
         }
     }
 
@@ -84,11 +82,11 @@ impl<'a> Pcc<'a> {
         let reg_value = self.pcc.pcc_portd.read();
         if reg_value.pr().is_0() {
             Err(Error::RegisterNotPresent)
-        } else if reg_value.cgc().is_1(){
+        } else if reg_value.cgc().is_1() {
             Err(Error::AlreadyEnabled)
         } else {
             self.pcc.pcc_portd.modify(|_, w| w.cgc()._1());
-            Ok(PortD{pcc: self.pcc})
+            Ok(PortD { pcc: self.pcc })
         }
     }
 
@@ -96,11 +94,11 @@ impl<'a> Pcc<'a> {
         let reg_value = self.pcc.pcc_porte.read();
         if reg_value.pr().is_0() {
             Err(Error::RegisterNotPresent)
-        } else if reg_value.cgc().is_1(){
+        } else if reg_value.cgc().is_1() {
             Err(Error::AlreadyEnabled)
         } else {
             self.pcc.pcc_porte.modify(|_, w| w.cgc()._1());
-            Ok(PortE{pcc: self.pcc})
+            Ok(PortE { pcc: self.pcc })
         }
     }
 
@@ -108,12 +106,14 @@ impl<'a> Pcc<'a> {
         let reg_value = self.pcc.pcc_lpuart1.read();
         if reg_value.pr().is_0() {
             Err(Error::RegisterNotPresent)
-        } else if reg_value.cgc().is_1(){
+        } else if reg_value.cgc().is_1() {
             Err(Error::AlreadyEnabled)
         } else {
-            self.pcc.pcc_lpuart1.modify(|_, w| w.pcs().bits(u8::from(source)));
+            self.pcc
+                .pcc_lpuart1
+                .modify(|_, w| w.pcs().bits(u8::from(source)));
             self.pcc.pcc_lpuart1.modify(|_, w| w.cgc()._1());
-            Ok(Lpuart1{pcc: self.pcc})
+            Ok(Lpuart1 { pcc: self.pcc })
         }
     }
 
@@ -121,11 +121,11 @@ impl<'a> Pcc<'a> {
         let reg_value = self.pcc.pcc_flex_can0.read();
         if reg_value.pr().is_0() {
             Err(Error::RegisterNotPresent)
-        } else if reg_value.cgc().is_1(){
+        } else if reg_value.cgc().is_1() {
             Err(Error::AlreadyEnabled)
         } else {
             self.pcc.pcc_flex_can0.modify(|_, w| w.cgc()._1());
-            Ok(Can0{pcc: self.pcc})
+            Ok(Can0 { pcc: self.pcc })
         }
     }
 }
@@ -159,4 +159,3 @@ impl<'a> Drop for Can0<'a> {
         self.pcc.pcc_flex_can0.reset();
     }
 }
-

@@ -5,22 +5,10 @@
 //!  - ITM
 // TODO: implement and test ITM
 
-use core::fmt;
-
-use cortex_m;
-
-use s32k144;
-use s32k144::LPUART1;
-use s32k144::PCC;
-use s32k144::PORTC;
-use s32k144::SCG;
-use s32k144::lpuart0;
-
+use crate::lpuart;
+use crate::spc;
 use embedded_types;
-use embedded_types::io::Write;
-
-use lpuart;
-use spc;
+use s32k144;
 
 impl<'p> embedded_types::io::Write for LpuartConsole<'p> {
     fn write(&mut self, buf: &[u8]) -> embedded_types::io::Result<usize> {
@@ -46,7 +34,7 @@ impl<'p> embedded_types::io::Read for LpuartConsole<'p> {
                     if b == byte {
                         return Ok(index);
                     }
-                },
+                }
                 Err(embedded_types::io::Error::BufferExhausted) => (),
                 Err(x) => return Err(x),
             }
@@ -61,17 +49,12 @@ pub struct LpuartConsole<'a> {
 }
 
 impl<'a> LpuartConsole<'a> {
-    pub fn init(
-        lpuart: &'a s32k144::lpuart0::RegisterBlock,
-        spc: &'a spc::Spc<'a>,
-    ) -> Self{
+    pub fn init(lpuart: &'a s32k144::lpuart0::RegisterBlock, spc: &'a spc::Spc<'a>) -> Self {
         let mut uart_config = lpuart::Config::default();
         uart_config.baudrate = 115200;
-        
-        LpuartConsole{
+
+        LpuartConsole {
             lpuart: lpuart::Lpuart::init(lpuart, spc, uart_config, 8_000_000).unwrap(),
         }
     }
 }
-
-

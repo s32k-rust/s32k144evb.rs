@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+- CSEc module, interfacing with the board's hardware-accelerated cryptographic functions (RNG, AES-CBC-128, CMAC)
+
 ### Changed
 ### Removed
 

@@ -8,6 +8,7 @@ extern crate embedded_types;
 extern crate s32k144;
 
 pub mod can;
+pub mod csec;
 pub mod led;
 pub mod lpuart;
 pub mod pcc;

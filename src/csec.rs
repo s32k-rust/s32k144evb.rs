@@ -40,17 +40,15 @@
 //!
 //! let plaintext: &[u8] = "Key:0123456789ab".as_bytes();
 //! let initvct: &[u8] = "1234567887654321".as_bytes();
-//! let mut enctext: [u8; 16] = [0; 16];
-//! let mut dectext: [u8; 16] = [0; 16];
+//! let mut buffer: [u8; 16] = [0; 16];
 //!
 //! let csec = csec::CSEc::init(&p.FTFC, &p.CSE_PRAM);
 //! let rnd_buf = csec.generate_rnd().unwrap();
 //! csec.load_plainkey(&PLAINKEY).unwrap();
-//! csec.encrypt_cbc(&plaintext, &rnd_buf, &mut enctext)
-//!     .unwrap();
-//! csec.decrypt_cbc(&enctext, &rnd_buf, &mut dectext)
-//!     .unwrap();
-//! assert!(plaintext == &dectext[..]);
+//! buffer.copy_from_slice(plaintext);
+//! csec.encrypt_cbc(&rnd_buf, &mut buffer).unwrap();
+//! csec.decrypt_cbc(&rnd_buf, &mut buffer).unwrap();
+//! assert!(plaintext == &buffer[..]);
 //! ```
 //!
 //! The provided key is loaded onto the board's RAM key slot. Multiple key slots are available, but
@@ -301,21 +299,19 @@ impl CSEc {
     /// Perform AES-128 encryption in CBC mode of the input plain text buffer.
     pub fn encrypt_cbc(
         &self,
-        plaintext: &[u8],
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
-        ciphertext: &mut [u8],
+        buffer: &mut [u8],
     ) -> Result<(), CommandResult> {
-        self.handle_cbc(Command::EncCbc, plaintext, init_vec, ciphertext)
+        self.handle_cbc(Command::EncCbc, init_vec, buffer)
     }
 
     /// Perform AES-128 decryption in CBC mode of the input cipher text buffer.
     pub fn decrypt_cbc(
         &self,
-        ciphertext: &[u8],
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
-        plaintext: &mut [u8],
+        buffer: &mut [u8],
     ) -> Result<(), CommandResult> {
-        self.handle_cbc(Command::DecCbc, ciphertext, init_vec, plaintext)
+        self.handle_cbc(Command::DecCbc, init_vec, buffer)
     }
 
     /// Generate a 128-bit Message Authentication Code for `input`.
@@ -416,13 +412,12 @@ impl CSEc {
     fn handle_cbc(
         &self,
         command: Command,
-        input: &[u8],
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
-        output: &mut [u8],
+        buffer: &mut [u8]
     ) -> Result<(), CommandResult> {
-        if output.len() != input.len()
-            || output.len() % 16 != 0
-            || (input.len() >> BYTES_TO_PAGES_SHIFT) > u16::max_value() as usize
+        if buffer.len() != buffer.len()
+            || buffer.len() % 16 != 0
+            || (buffer.len() >> BYTES_TO_PAGES_SHIFT) > u16::max_value() as usize
         {
             return Err(CommandResult::GeneralError);
         }
@@ -432,13 +427,12 @@ impl CSEc {
         self.write_command_halfword(
             PAGE_LENGTH_OFFSET,
             // At least one page has to be processed.
-            core::cmp::max((input.len() >> BYTES_TO_PAGES_SHIFT) as u16, 1),
+            core::cmp::max((buffer.len() >> BYTES_TO_PAGES_SHIFT) as u16, 1),
         );
 
         fn process_blocks(
             cse: &CSEc,
-            input: &[u8],
-            output: &mut [u8],
+            buffer: &mut [u8],
             sequence: Sequence,
             command: Command,
         ) -> Result<(), CommandResult> {
@@ -452,21 +446,20 @@ impl CSEc {
 
             // How many bytes are we processing this round? At least one page of bytes must be
             // processed.
-            let bytes = core::cmp::min(input.len() >> BYTES_TO_PAGES_SHIFT, avail_pages)
+            let bytes = core::cmp::min(buffer.len() >> BYTES_TO_PAGES_SHIFT, avail_pages)
                 * PAGE_SIZE_IN_BYTES;
 
             // Write our input bytes from `input`, process them, and read the processed bytes into
             // `output`.
-            cse.write_command_bytes(page_offset, &input[..bytes]);
+            cse.write_command_bytes(page_offset, &buffer[..bytes]);
             cse.write_command_header(command, Format::Copy, sequence, KeyID::RamKey)?;
-            cse.read_command_bytes(page_offset, &mut output[..bytes]);
+            cse.read_command_bytes(page_offset, &mut buffer[..bytes]);
 
             // Process remaining blocks, if any
-            if input.len() - bytes != 0 {
+            if buffer.len() - bytes != 0 {
                 process_blocks(
                     cse,
-                    &input[bytes..],
-                    &mut output[bytes..],
+                    &mut buffer[bytes..],
                     Sequence::Subsequent,
                     command,
                 )
@@ -475,7 +468,7 @@ impl CSEc {
             }
         }
 
-        process_blocks(self, input, output, Sequence::First, command)
+        process_blocks(self, buffer, Sequence::First, command)
     }
 
     /// Writes the command header to `CSE_PRAM`, triggering the CSEc operation.

@@ -1,5 +1,5 @@
 [package]
-authors = ["Kjetil Kjeka <kjetilkjeka@gmail.com>", "Tmplt <tmplt@dragons.rocks>"]
+authors = ["Kjetil Kjeka <kjetilkjeka@gmail.com>", "tmplt <tmplt@dragons.rocks>"]
 categories = ["embedded", "no-std", "hardware-support"]
 description = "Board support crate for s32k144evb"
 repository = "https://github.com/kjetilkjeka/s32k144evb.rs"
@@ -7,7 +7,7 @@ readme = "README.md"
 keywords = ["arm", "cortex-m", "s32k144", "template"]
 license = "MIT OR Apache-2.0"
 name = "s32k144evb"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2018"
 
 [dependencies]

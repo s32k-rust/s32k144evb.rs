@@ -268,7 +268,7 @@ impl CSEc {
 
     /// Generates a vector of 128 random bits.
     /// This function must be called after `init_rng`.
-    pub fn generate_rnd(&self) -> Result<([u8; 16]), CommandResult> {
+    pub fn generate_rnd(&self) -> Result<[u8; 16], CommandResult> {
         self.write_command_header(
             Command::Rng,
             Format::Copy,

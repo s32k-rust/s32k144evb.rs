@@ -296,7 +296,7 @@ impl CSEc {
         )
     }
 
-    /// Perform AES-128 encryption in CBC mode of the input plain text buffer.
+    /// Perform in-place AES-128 encryption in CBC mode of the input buffer.
     pub fn encrypt_cbc(
         &self,
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
@@ -305,7 +305,7 @@ impl CSEc {
         self.handle_cbc(Command::EncCbc, init_vec, buffer)
     }
 
-    /// Perform AES-128 decryption in CBC mode of the input cipher text buffer.
+    /// Perform in-place AES-128 decryption in CBC mode of the input buffer.
     pub fn decrypt_cbc(
         &self,
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],

@@ -320,7 +320,9 @@ impl CSEc {
 
     /// Generate a 128-bit Message Authentication Code for `input`.
     pub fn generate_mac(&self, message: &[u8]) -> Result<[u8; 16], CommandResult> {
-        assert!(message.len() <= u32::max_value() as usize);
+        if message.len() > u32::max_value() as usize {
+            return Err(CommandResult::GeneralError);
+        }
 
         // Write how long our message is (in bits)
         self.write_command_words(MAC_MESSAGE_LENGTH_OFFSET, &[(message.len() * 8) as u32]);
@@ -357,7 +359,9 @@ impl CSEc {
     /// Verify a message against a 128-bit Message Authentication Code.
     pub fn verify_mac(&self, message: &[u8], cmac: &[u8; 16]) -> Result<bool, CommandResult> {
         // A length of 0 is interpreted by SHE to compare all bits of `mac`.
-        assert!(message.len() > 0 && message.len() <= u32::max_value() as usize);
+        if message.len() == 0 || message.len() > u32::max_value() as usize {
+            return Err(CommandResult::GeneralError);
+        }
 
         // Write how long our message is (in bits)
         self.write_command_words(MAC_MESSAGE_LENGTH_OFFSET, &[(message.len() * 8) as u32]);
@@ -416,12 +420,12 @@ impl CSEc {
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
         output: &mut [u8],
     ) -> Result<(), CommandResult> {
-        assert!(output.len() == input.len());
-        assert!(output.len() % 16 == 0);
-        assert!(
-            (input.len() >> BYTES_TO_PAGES_SHIFT) as u16 <= u16::max_value(),
-            "Encryption/decryption input too long"
-        );
+        if output.len() != input.len()
+            || output.len() % 16 != 0
+            || (input.len() >> BYTES_TO_PAGES_SHIFT) > u16::max_value() as usize
+        {
+            return Err(CommandResult::GeneralError);
+        }
 
         // Write the initialization vector and how many pages we are going to process
         self.write_command_bytes(PAGE_1_OFFSET, init_vec);

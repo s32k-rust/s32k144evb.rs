@@ -413,10 +413,9 @@ impl CSEc {
         &self,
         command: Command,
         init_vec: &[u8; PAGE_SIZE_IN_BYTES],
-        buffer: &mut [u8]
+        buffer: &mut [u8],
     ) -> Result<(), CommandResult> {
-        if buffer.len() != buffer.len()
-            || buffer.len() % 16 != 0
+        if buffer.len() % 16 != 0
             || (buffer.len() >> BYTES_TO_PAGES_SHIFT) > u16::max_value() as usize
         {
             return Err(CommandResult::GeneralError);
@@ -457,12 +456,7 @@ impl CSEc {
 
             // Process remaining blocks, if any
             if buffer.len() - bytes != 0 {
-                process_blocks(
-                    cse,
-                    &mut buffer[bytes..],
-                    Sequence::Subsequent,
-                    command,
-                )
+                process_blocks(cse, &mut buffer[bytes..], Sequence::Subsequent, command)
             } else {
                 Ok(())
             }

@@ -30,8 +30,7 @@ unsafe fn main() -> ! {
     };
     let _wdog = wdog::Watchdog::init(&p.WDOG, wdog_settings).unwrap();
 
-    let mut enctext: [u8; MSG_LEN] = [0; MSG_LEN];
-    let mut dectext: [u8; MSG_LEN] = [0; MSG_LEN];
+    let mut buffer: [u8; MSG_LEN] = [0; MSG_LEN];
 
     // Initialize CSEc module
     let csec = csec::CSEc::init(p.FTFC, p.CSE_PRAM);
@@ -40,11 +39,12 @@ unsafe fn main() -> ! {
 
     // Encrypt `MSG`
     let rnd_buf = csec.generate_rnd().unwrap();
-    csec.encrypt_cbc(&MSG, &rnd_buf, &mut enctext).unwrap();
+    buffer.copy_from_slice(MSG);
+    csec.encrypt_cbc(&rnd_buf, &mut buffer).unwrap();
 
     // Decrypt `MSG` and verify it
-    csec.decrypt_cbc(&enctext, &rnd_buf, &mut dectext).unwrap();
-    assert!(MSG == &dectext[..]);
+    csec.decrypt_cbc(&rnd_buf, &mut buffer).unwrap();
+    assert!(MSG == &buffer[..]);
 
     // Generate a MAC for `MSG` and verify it
     let cmac = csec.generate_mac(&MSG).unwrap();
